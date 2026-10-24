@@ -22,6 +22,7 @@ from abnt_mcp.config import (
 )
 from abnt_mcp.server import (
     init_research_spec,
+    scaffold_academic_project,
     audit_research_spec,
     simulate_banca,
     check_structure,
@@ -355,3 +356,161 @@ def test_unified_diagnostic_item_normative_vs_heuristic(tmp_path: Path) -> None:
         and d["human_review_required"] is True
         for d in tone_res["diagnostics"]
     )
+
+
+def _build_university_sample_pdf_with_logo(pdf_path: Path) -> None:
+    """Constrói um PDF sintético multi-página com brasão (/XObject /Image) na Capa e padrões institucionais."""
+    import pypdf
+    from pypdf.generic import (
+        ArrayObject,
+        DecodedStreamObject,
+        DictionaryObject,
+        NameObject,
+        NumberObject,
+    )
+
+    writer = pypdf.PdfWriter()
+
+    def _make_text_page(lines: list[str], with_logo: bool = False) -> pypdf.PageObject:
+        page = pypdf.PageObject.create_blank_page(width=595, height=842)
+        font_dict = DictionaryObject({
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        })
+        resources = DictionaryObject({
+            NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font_dict)})
+        })
+
+        ops = ["BT", "/F1 12 Tf", "72 780 Td"]
+        for idx, ln in enumerate(lines):
+            escaped = ln.replace("(", "\\(").replace(")", "\\)")
+            if idx > 0:
+                ops.append("0 -20 Td")
+            ops.append(f"({escaped}) Tj")
+        ops.append("ET")
+
+        if with_logo:
+            img_stream = DecodedStreamObject()
+            img_stream.set_data(b"\x10\x40\x80" * (16 * 16))
+            img_stream.update({
+                NameObject("/Type"): NameObject("/XObject"),
+                NameObject("/Subtype"): NameObject("/Image"),
+                NameObject("/Width"): NumberObject(16),
+                NameObject("/Height"): NumberObject(16),
+                NameObject("/ColorSpace"): NameObject("/DeviceRGB"),
+                NameObject("/BitsPerComponent"): NumberObject(8),
+            })
+            img_ref = writer._add_object(img_stream)
+            resources[NameObject("/XObject")] = DictionaryObject({NameObject("/ImLogo"): img_ref})
+            ops.insert(0, "q 40 0 0 40 270 800 cm /ImLogo Do Q")
+
+        page[NameObject("/Resources")] = resources
+        content_stream = DecodedStreamObject()
+        content_stream.set_data("\n".join(ops).encode("latin-1", errors="replace"))
+        page[NameObject("/Contents")] = writer._add_object(content_stream)
+        return page
+
+    # Página 1: Capa com Brasão + Cabeçalho Institucional
+    writer.add_page(_make_text_page([
+        "UNIVERSIDADE FEDERAL DE TECNOLOGIA",
+        "CENTRO DE INFORMÁTICA E COMPUTAÇÃO",
+        "CURSO DE BACHARELADO EM ENGENHARIA DE SOFTWARE",
+        "MARIA APARECIDA SILVA",
+        "MODELO INSTITUCIONAL DE TCC",
+        "2025",
+    ], with_logo=True))
+
+    # Página 2: Folha de Rosto com Preâmbulo e Orientador + Ficha Catalográfica + Considerações Finais
+    writer.add_page(_make_text_page([
+        "MARIA APARECIDA SILVA",
+        "Trabalho de Conclusão de Curso apresentado à Universidade Federal de Tecnologia como requisito parcial para obtenção do grau de Bacharel.",
+        "Orientador: Prof. Dr. Roberto Almeida",
+        "Ficha Catalográfica elaborada pela Biblioteca Central",
+        "Folha de Aprovação da Banca Examinadora",
+        "5 Considerações Finais",
+    ], with_logo=False))
+
+    with open(pdf_path, "wb") as fp:
+        writer.write(fp)
+
+
+def test_scaffold_academic_project_with_sample_pdf_and_logo_extraction(tmp_path: Path) -> None:
+    """Verifica se scaffold_academic_project aprende o padrão e extrai a logo da capa de um PDF da faculdade."""
+    sample_pdf = tmp_path / "modelo_faculdade.pdf"
+    _build_university_sample_pdf_with_logo(sample_pdf)
+
+    proj_dir = tmp_path / "meu_tcc_typst"
+    res = scaffold_academic_project(
+        project_path=str(proj_dir),
+        title="Arquitetura de Agentes Acadêmicos",
+        author="Pedro Henrique Novais",
+        document_type="tcc",
+        format="typst",
+        sample_pdf_path=str(sample_pdf),
+    )
+
+    assert res["success"] is True
+    assert res["cover_logo_path"] == "figuras/logo_instituicao.png"
+    extracted_logo = proj_dir / "figuras" / "logo_instituicao.png"
+    assert extracted_logo.is_file()
+    assert extracted_logo.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+    inferred = res["inferred_institutional_profile"]
+    assert inferred is not None
+    assert inferred["inferred_from_pdf"] is True
+    assert inferred["has_cover_logo"] is True
+    assert "UNIVERSIDADE FEDERAL DE TECNOLOGIA" in (inferred["institution"] or "")
+    assert "Prof. Dr. Roberto Almeida" in (inferred["advisor"] or "")
+    assert "ficha catalografica" in inferred["required_pre_textual"]
+    assert "folha de aprovacao" in inferred["required_pre_textual"]
+    assert inferred["conclusion_label"] == "Considerações Finais"
+
+    main_typ = (proj_dir / "main.typ").read_text(encoding="utf-8")
+    assert '#image("figuras/logo_instituicao.png", width: 3cm)' in main_typ
+    assert "CONSIDERAÇÕES FINAIS" in main_typ
+
+    # Proteção contra sobrescrita acidental (overwrite=False)
+    with pytest.raises(FileExistsError):
+        scaffold_academic_project(
+            project_path=str(proj_dir),
+            title="Outro Título",
+            author="Outro Autor",
+            overwrite=False,
+        )
+
+
+def test_scaffold_academic_project_latex_and_markdown_with_explicit_logo(tmp_path: Path) -> None:
+    """Valida scaffolding nos formatos LaTeX e Markdown com cópia de logo explícita (logo_path)."""
+    from abnt_mcp.parsers.pdf_reader import _encode_rgb_png_bytes
+
+    external_logo = tmp_path / "brasao_uf.png"
+    external_logo.write_bytes(_encode_rgb_png_bytes(8, 8, b"\x20\x60\xa0" * 64))
+
+    latex_dir = tmp_path / "proj_latex"
+    res_tex = scaffold_academic_project(
+        project_path=str(latex_dir),
+        title="Dissertação em LaTeX",
+        author="Ana Beatriz",
+        document_type="dissertacao",
+        format="latex",
+        institution="Universidade de São Paulo",
+        logo_path=str(external_logo),
+    )
+    assert res_tex["success"] is True
+    assert (latex_dir / "main.tex").is_file()
+    assert (latex_dir / "figuras" / "logo_instituicao.png").is_file()
+    assert "logo_instituicao.png" in (latex_dir / "main.tex").read_text(encoding="utf-8")
+
+    md_dir = tmp_path / "proj_md"
+    res_md = scaffold_academic_project(
+        project_path=str(md_dir),
+        title="Artigo em Markdown",
+        author="Carlos Silva",
+        document_type="artigo",
+        format="markdown",
+        logo_path=str(external_logo),
+    )
+    assert res_md["success"] is True
+    assert (md_dir / "main.md").is_file()
+    assert "![Logotipo Institucional](figuras/logo_instituicao.png)" in (md_dir / "main.md").read_text(encoding="utf-8")
