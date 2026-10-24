@@ -12,6 +12,7 @@ Leia integralmente as diretrizes em [AGENTS.md](AGENTS.md) e as especificações
 - Mudança ou adição de regra normativa ABNT/IBGE -> Atualizar `specs/01-normative-catalog.spec.md` + `NORMATIVE_RULES` em `src/abnt_mcp/config.py`.
 - Mudança no manifesto `abnt.spec.json` / `SPEC.md` -> Atualizar `specs/02-research-spec-schema.spec.md` + `src/abnt_mcp/models.py` + `src/abnt_mcp/pillars/spec.py`.
 - Mudança em `@mcp.tool`, `@mcp.prompt` ou `@mcp.resource` -> Atualizar `specs/03-mcp-tools-contract.spec.md` + `src/abnt_mcp/server.py`.
+- Toda alteração em `src/`, `specs/` ou `pyproject.toml` -> Registrar obrigatoriamente em `CHANGELOG.md` (sob `## [Unreleased]` ou na seção da versão). Jamais inclua campo `email` em `authors` no `pyproject.toml`.
 
 ---
 
@@ -41,4 +42,5 @@ uv run abnt-mcp --help
   - `compiler.py`: Pilar 3 — Compilação nativa via Rust `typst`, `pdflatex`/`latexmk` (`abnTeX2`) e `pandoc`.
   - `advisory.py`: Pilar 4 — Crossref, SciELO, BibTeX por DOI e Simulador de Banca Examinadora integrado ao SDD.
   - `spec.py`: Motor SDD — Inicialização, parsing e auditoria de `abnt.spec.json` e `SPEC.md`.
-- `src/abnt_mcp/server.py`: Servidor FastMCP expondo 16 tools, 3 prompts e 8 resources.
+- `src/abnt_mcp/server.py`: Servidor FastMCP expondo 18 tools, 3 prompts e 8 resources.
+- `CHANGELOG.md`: Registro histórico canônico de todas as versões e alterações SDD.

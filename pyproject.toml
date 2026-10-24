@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "abnt-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "ABNT Copilot MCP - Servidor Model Context Protocol definitivo para elaboração, revisão e compilação de TCCs, dissertações e artigos no padrão ABNT"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-    { name = "Pedro Henrique da Silva Novais", email = "pedro@example.com" }
+    { name = "Pedro Henrique da Silva Novais" }
 ]
 keywords = [
     "mcp",
@@ -54,11 +54,29 @@ dev = [
     "pytest-cov>=4.0.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/PedroSmaxY/abnt-mcp"
+Repository = "https://github.com/PedroSmaxY/abnt-mcp"
+Issues = "https://github.com/PedroSmaxY/abnt-mcp/issues"
+Changelog = "https://github.com/PedroSmaxY/abnt-mcp/blob/main/CHANGELOG.md"
+
 [project.scripts]
 abnt-mcp = "abnt_mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/abnt_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/abnt_mcp",
+    "specs",
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "LICENSE",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

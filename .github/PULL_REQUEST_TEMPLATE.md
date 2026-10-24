@@ -23,4 +23,5 @@
 - [ ] **Invariantes Normativas Preservadas:** Verifiquei que a alteração não reintroduz padrões revogados (como autoria em CAIXA ALTA entre parênteses da antiga NBR 10520:2002, ponto após seção da NBR 6024 ou `mai.` com ponto da NBR 6023).
 - [ ] **Tipagem e Schemas:** Modelos Pydantic em `src/abnt_mcp/models.py` e `NORMATIVE_RULES` em `src/abnt_mcp/config.py` estão devidamente tipados e sincronizados.
 - [ ] **Testes e Trava Anti-Drift:** Executei `uv run pytest -v --cov=abnt_mcp` localmente e todos os testes (incluindo `tests/test_sdd.py`) passaram sem regressões.
+- [ ] **Registro no `CHANGELOG.md`:** Documentei todas as alterações deste PR em `CHANGELOG.md` (sob `## [Unreleased]` ou na versão correspondente).
 - [ ] **Documentação:** Atualizei `README.md` / docstrings caso novas interfaces MCP tenham sido adicionadas.

@@ -1,0 +1,30 @@
+# Configuração Oficial de Geração de Release Notes (GitHub Releases — SDD)
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - duplicate
+      - invalid
+  categories:
+    - title: "📜 Especificações & Catálogo Normativo (specs/)"
+      labels:
+        - spec
+        - normative
+    - title: "🚀 Novas Ferramentas & Pilares MCP (feat)"
+      labels:
+        - feat
+        - enhancement
+    - title: "🩹 Correções Normativas, Segurança & Bugs (fix)"
+      labels:
+        - fix
+        - bug
+        - security
+    - title: "🧪 Testes, CI/CD & Governança SDD"
+      labels:
+        - test
+        - ci
+        - docs
+        - chore
+    - title: "📦 Outras Alterações"
+      labels:
+        - "*"

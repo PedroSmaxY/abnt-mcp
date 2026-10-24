@@ -1,0 +1,145 @@
+name: Release & Publish (uvx / PyPI)
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag da versão (ex: v0.2.0)"
+        required: true
+        default: "v0.2.0"
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-build:
+    name: Validate SDD, Build Wheel & Smoke-Test uvx
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install Dependencies
+        run: uv sync --all-extras
+
+      - name: Verify Tag, Version & CHANGELOG Parity
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          uv run python -c '
+          import os, re, pathlib
+          from abnt_mcp import __version__
+          tag = os.environ["RELEASE_TAG"].lstrip("v")
+          pyproject = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
+          m = re.search(r"^version\s*=\s*\"([^\"]+)\"", pyproject, re.M)
+          assert m, "version not found in pyproject.toml"
+          py_ver = m.group(1)
+          assert tag == py_ver == __version__, f"Version mismatch: tag={tag}, pyproject={py_ver}, __init__={__version__}"
+          changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          assert f"## [{tag}]" in changelog, f"Section ## [{tag}] missing in CHANGELOG.md"
+          print(f"Verified SDD release parity for v{tag}")
+          '
+
+      - name: Run Full SDD & Normative Test Suite
+        run: uv run pytest -v --cov=abnt_mcp --cov-report=term-missing
+
+      - name: Build Wheel (.whl) and Source Distribution (.tar.gz)
+        run: uv build
+
+      - name: Smoke-Test Package Execution via uvx
+        run: |
+          WHEEL_FILE=$(ls dist/*.whl | head -n 1)
+          uvx --from "$WHEEL_FILE" abnt-mcp --help
+
+      - name: Extract Release Notes from CHANGELOG.md
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          uv run python -c '
+          import os, re, pathlib
+          ver = os.environ["RELEASE_TAG"].lstrip("v")
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = rf"## \[{re.escape(ver)}\][^\n]*\n(.*?)(?=\n## \[|\Z)"
+          m = re.search(pattern, text, re.S)
+          notes = m.group(1).strip() if m else f"Release v{ver}"
+          header = (
+              f"## Instalação e Execução Rápida (`uvx`)\n\n"
+              f"```bash\n"
+              f"# Via PyPI (após publicação):\n"
+              f"uvx abnt-mcp\n\n"
+              f"# Direto desta Release no GitHub (disponível imediatamente):\n"
+              f"uvx --from git+https://github.com/PedroSmaxY/abnt-mcp@v{ver} abnt-mcp\n"
+              f"```\n\n---\n\n"
+          )
+          pathlib.Path("RELEASE_NOTES.md").write_text(header + notes + "\n", encoding="utf-8")
+          '
+
+      - name: Upload Built Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: |
+            dist/*
+            RELEASE_NOTES.md
+
+  github-release:
+    name: Create Official GitHub Release
+    needs: validate-and-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Built Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: "ABNT Copilot MCP ${{ github.event.inputs.tag || github.ref_name }}"
+          body_path: RELEASE_NOTES.md
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          generate_release_notes: true
+
+  publish-pypi:
+    name: Publish to PyPI (Trusted Publishing OIDC)
+    needs: github-release
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    environment:
+      name: pypi
+      url: https://pypi.org/p/abnt-mcp
+    permissions:
+      id-token: write
+    steps:
+      - name: Download Built Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+
+      - name: Remove RELEASE_NOTES.md before PyPI upload
+        run: rm -f RELEASE_NOTES.md
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          skip-existing: true
