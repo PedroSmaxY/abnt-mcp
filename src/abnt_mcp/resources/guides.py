@@ -83,3 +83,24 @@ jan., fev., mar., abr., maio (sem ponto!), jun., jul., ago., set., out., nov., d
 - TCC/DISSERTAÇÃO/TESE:
   SOBRENOME, Nome. **Título**: subtítulo. 2024. 120 f. Dissertação (Mestrado em Computação) – Universidade Federal, Cidade, 2024.
 """
+
+GUIDE_SDD_WORKFLOW = """# GUIA SDD (SPEC-DRIVEN ACADEMIC WRITING) — ABNT COPILOT MCP
+
+O fluxo **Spec-Driven Development (SDD)** transforma a elaboração do trabalho acadêmico em um contrato verificável entre a Introdução, o Desenvolvimento e a Conclusão.
+
+## 1. AS TRÊS CAMADAS DO MANIFESTO (`abnt.spec.json` & `SPEC.md`)
+1. **Camada 1 — Perfil Normativo (`profile`):**
+   - `document_type`: `"tcc"`, `"dissertacao"`, `"tese"` (validados sob a **ABNT NBR 14724**) ou `"artigo"` (validado sob a **ABNT NBR 6022**, sem exigir capa, folha de rosto ou sumário).
+   - `min_references`: Meta mínima de entradas no arquivo `.bib`.
+   - `min_scientific_tone_score`: Índice mínimo de rigor e impessoalidade (0 a 100).
+2. **Camada 2 — Matriz Científica Rastreável (`specific_objectives`):**
+   - Cada objetivo específico recebe um ID canônico (`OBJ-01`, `OBJ-02`, ...), descrição formal e lista de `keywords` que comprovam sua discussão no texto e sua resposta explícita na Conclusão.
+3. **Camada 3 — Capítulos Planejados (`planned_chapters`):**
+   - Lista de seções previstas (com numeração NBR 6024 e metas mínimas).
+
+## 2. CICLO OPERACIONAL RECOMENDADO
+1. **Inicializar a Especificação:** Execute a tool `init_research_spec` no início da pesquisa para criar `abnt.spec.json` e `SPEC.md`.
+2. **Redigir e Formatar:** Utilize `format_citation`, `format_reference`, `format_figure` e `format_table` para redigir os capítulos.
+3. **Auditar contra a Spec:** Execute `audit_research_spec` para verificar se todos os `OBJ-XX` foram respondidos na Conclusão e se todas as regras canônicas (`NBR14724-R01`, `NBR10520-R01`, `NBR6024-R01`, etc.) foram cumpridas.
+4. **Simular Banca Examinadora:** Execute `simulate_banca` para obter arguição focada nos objetivos específicos pendentes antes da entrega final.
+"""

@@ -31,11 +31,17 @@ from abnt_mcp.pillars.advisory import (
     clean_bibtex_file_service,
     simulate_banca_examination,
 )
+from abnt_mcp.pillars.spec import (
+    init_project_spec,
+    audit_project_against_spec,
+    get_spec_template_resource,
+)
 from abnt_mcp.parsers.pdf_reader import extract_pdf_section
 from abnt_mcp.resources.guides import (
     GUIDE_CITATIONS_NBR10520,
     GUIDE_STRUCTURE_NBR14724,
     GUIDE_REFERENCES_NBR6023,
+    GUIDE_SDD_WORKFLOW,
 )
 from abnt_mcp.templates.latex import get_latex_template
 from abnt_mcp.templates.typst import get_typst_template
@@ -317,6 +323,66 @@ def format_table(
     )
 
 
+@mcp.tool()
+def init_research_spec(
+    project_path: str,
+    title: str,
+    research_problem: str,
+    general_objective: str,
+    specific_objectives: list[dict[str, Any]],
+    methodology_summary: str,
+    document_type: Literal["tcc", "dissertacao", "tese", "artigo"] = "tcc",
+    author: str | None = None,
+    institution: str | None = None,
+    min_references: int | None = None,
+    planned_chapters: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """
+    Inicializa o manifesto de Especificação Científica (SDD) 'abnt.spec.json' e 'SPEC.md' no projeto:
+    - Camada 1: Perfil Normativo (ABNT NBR 14724 para monografias ou NBR 6022 para artigos).
+    - Camada 2: Matriz Científica rastreável (Problema, Objetivo Geral e Objetivos Específicos OBJ-XX).
+    - Camada 3: Capítulos planejados com metas mínimas de extensão e citações.
+    """
+    return init_project_spec(
+        project_path=project_path,
+        title=title,
+        research_problem=research_problem,
+        general_objective=general_objective,
+        specific_objectives=specific_objectives,
+        methodology_summary=methodology_summary,
+        document_type=document_type,
+        author=author,
+        institution=institution,
+        min_references=min_references,
+        planned_chapters=planned_chapters,
+    )
+
+
+@mcp.tool()
+def audit_research_spec(
+    project_path: str,
+    spec_path: str | None = None,
+) -> dict[str, Any]:
+    """
+    Audita o manuscrito acadêmico contra o manifesto 'abnt.spec.json' (Spec-Driven Academic Writing):
+    - Verifica se cada objetivo específico (OBJ-01, OBJ-02...) foi discutido no texto e respondido na Conclusão.
+    - Confere a presença dos capítulos planejados e a meta mínima de referências no .bib.
+    - Reporta violações com IDs canônicos de regra (NBR14724-R01, NBR6022-R01, NBR10520-R01, NBR6024-R01).
+    """
+    result = audit_project_against_spec(project_path=project_path, spec_path=spec_path)
+    return result.model_dump()
+
+
+@mcp.tool()
+def simulate_banca(project_path: str) -> dict[str, Any]:
+    """
+    Executa a simulação de banca examinadora (TCC/Dissertação/Tese/Artigo):
+    - Avalia alinhamento entre Introdução, Objetivos Específicos (via abnt.spec.json se presente) e Conclusão.
+    - Calcula notas por eixo e formula perguntas críticas de arguição para a defesa oral.
+    """
+    return simulate_banca_examination(project_path=project_path)
+
+
 # ==============================================================================
 # 2. PROMPTS NATIVOS (@mcp.prompt)
 # ==============================================================================
@@ -424,6 +490,12 @@ def resource_guia_referencias() -> str:
     return GUIDE_REFERENCES_NBR6023
 
 
+@mcp.resource("abnt://guia/sdd")
+def resource_guia_sdd() -> str:
+    """Guia de Escrita Acadêmica Orientada a Especificações (SDD - Spec-Driven Development)."""
+    return GUIDE_SDD_WORKFLOW
+
+
 @mcp.resource("abnt://template/latex")
 def resource_template_latex() -> str:
     """Template funcional completo para monografias/TCCs em LaTeX configurado com abnTeX2."""
@@ -440,6 +512,12 @@ def resource_template_typst() -> str:
 def resource_template_markdown() -> str:
     """Template acadêmico para Pandoc Markdown com cabeçalho YAML e suporte a CSL ABNT."""
     return get_markdown_template()
+
+
+@mcp.resource("abnt://template/spec")
+def resource_template_spec() -> str:
+    """Template JSON do manifesto científico SDD (abnt.spec.json) em 3 camadas."""
+    return get_spec_template_resource()
 
 
 def main() -> None:

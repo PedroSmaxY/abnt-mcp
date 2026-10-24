@@ -222,7 +222,7 @@ def clean_bibtex_file_service(bib_path: str, output_path: str | None = None) -> 
 def simulate_banca_examination(project_path: str) -> dict[str, Any]:
     """
     Simula uma banca examinadora de TCC/Dissertação:
-    - Analisa a estrutura e consistência entre Objetivos e Conclusão.
+    - Analisa a estrutura e consistência entre Objetivos e Conclusão (com suporte a SDD abnt.spec.json).
     - Avalia replicabilidade e fundamentação metodológica.
     - Identifica deficiências na literatura e tom da redação.
     - Formula perguntas desafiadoras que a banca fará.
@@ -234,25 +234,39 @@ def simulate_banca_examination(project_path: str) -> dict[str, Any]:
     # 1. Checagem estrutural
     structure_res = check_project_structure(path)
 
-    # 2. Coleta texto completo
+    # 2. Coleta texto completo (ignorando SPEC.md)
     all_text = ""
     if path.is_file():
         all_text = path.read_text(encoding="utf-8", errors="replace")
     else:
         for f in path.rglob("*"):
-            if f.is_file() and f.suffix.lower() in {".tex", ".md", ".typ"}:
+            if f.is_file() and f.suffix.lower() in {".tex", ".md", ".typ"} and f.name != "SPEC.md":
                 all_text += "\n" + f.read_text(encoding="utf-8", errors="replace")
 
     # 3. Análise de tom científico
     tone_res = analyze_scientific_tone(all_text)
 
-    # 4. Avaliação de eixos da banca
+    # 4. Verifica se há manifesto SDD (abnt.spec.json) para auditoria determinística de objetivos
+    project_dir = path if path.is_dir() else path.parent
+    spec_file = project_dir / "abnt.spec.json"
+    spec_audit = None
+    if spec_file.is_file():
+        try:
+            from abnt_mcp.pillars.spec import audit_project_against_spec
+            spec_audit = audit_project_against_spec(path, spec_file)
+        except Exception:
+            spec_audit = None
+
+    # 5. Avaliação de eixos da banca
     axes_scores: dict[str, int] = {}
 
     # Eixo 1: Alinhamento Objetivos vs Conclusão
-    has_obj = bool(re.search(r"objetivo", all_text, re.IGNORECASE))
-    has_concl = bool(re.search(r"(conclus[ãa]o|considera[çc][õo]es finais)", all_text, re.IGNORECASE))
-    axes_scores["Alinhamento Tema-Objetivos-Conclusão"] = 85 if (has_obj and has_concl) else 50
+    if spec_audit is not None:
+        axes_scores["Alinhamento Tema-Objetivos-Conclusão"] = spec_audit.objectives_fulfillment_rate
+    else:
+        has_obj = bool(re.search(r"objetivo", all_text, re.IGNORECASE))
+        has_concl = bool(re.search(r"(conclus[ãa]o|considera[çc][õo]es finais)", all_text, re.IGNORECASE))
+        axes_scores["Alinhamento Tema-Objetivos-Conclusão"] = 85 if (has_obj and has_concl) else 50
 
     # Eixo 2: Rigor e Replicabilidade Metodológica
     has_method = bool(re.search(r"metodologia|materiais e m[ée]todos", all_text, re.IGNORECASE))
@@ -270,7 +284,7 @@ def simulate_banca_examination(project_path: str) -> dict[str, Any]:
 
     overall_grade = sum(axes_scores.values()) // len(axes_scores)
 
-    # Perguntas típicas que a banca fará
+    # Perguntas típicas que a banca fará (enriquecidas com objetivos órfãos da spec quando presentes)
     banca_questions: list[dict[str, str]] = [
         {
             "examinador": "Prof. Avaliador Metodológico",
@@ -289,6 +303,21 @@ def simulate_banca_examination(project_path: str) -> dict[str, Any]:
         }
     ]
 
+    if spec_audit is not None:
+        for obj_item in spec_audit.objectives_audit:
+            if obj_item.status != "fulfilled":
+                banca_questions.insert(
+                    0,
+                    {
+                        "examinador": f"Presidente da Banca (Auditoria SDD - {obj_item.id})",
+                        "pergunta": (
+                            f"Na sua especificação científica ({obj_item.id}), você prometeu: '{obj_item.description}'. "
+                            "Por que este objetivo específico não foi explicitamente comprovado e respondido na Conclusão?"
+                        ),
+                        "motivo": obj_item.feedback,
+                    },
+                )
+
     veredito = "APROVADO COM DISTINÇÃO" if overall_grade >= 90 else (
         "APROVADO COM RESSALVAS (REVISÃO NECESSÁRIA)" if overall_grade >= 70 else "NECESSITA REFORMULAÇÃO PROFUNDA"
     )
@@ -305,6 +334,18 @@ def simulate_banca_examination(project_path: str) -> dict[str, Any]:
             "nota": tone_res.score,
             "total_desvios": tone_res.issues_count,
         },
+        "spec_alignment": (
+            {
+                "has_spec": True,
+                "spec_compliance_score": spec_audit.spec_compliance_score,
+                "objectives_fulfillment_rate": spec_audit.objectives_fulfillment_rate,
+                "unfulfilled_objectives": [
+                    o.id for o in spec_audit.objectives_audit if o.status != "fulfilled"
+                ],
+            }
+            if spec_audit is not None
+            else {"has_spec": False}
+        ),
         "perguntas_da_banca": banca_questions,
         "principais_recomendacoes": [
             "Confronte explicitamente os resultados obtidos com os objetivos específicos na Conclusão.",

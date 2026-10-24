@@ -61,6 +61,7 @@ abnt-mcp = "abnt_mcp.server:main"
 packages = ["src/abnt_mcp"]
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]

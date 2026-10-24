@@ -15,6 +15,7 @@ from abnt_mcp.config import (
     VALUE_JUDGMENTS,
     COLLOQUIALISMS,
     RE_INVALID_SECTION_DOT,
+    NORMATIVE_RULES,
 )
 from abnt_mcp.models import (
     StructureCheckResult,
@@ -30,7 +31,7 @@ from abnt_mcp.parsers.bibtex import (
 )
 
 
-# Elementos da NBR 14724:2011 classificados
+# Elementos da NBR 14724:2011 classificados (Monografias/TCC/Dissertações/Teses)
 MANDATORY_ELEMENTS: dict[str, list[str]] = {
     "pre_textual": [
         "capa",
@@ -43,6 +44,22 @@ MANDATORY_ELEMENTS: dict[str, list[str]] = {
         "introducao",
         "desenvolvimento",  # engloba metodologia/resultados/fundamentacao
         "conclusao",        # ou consideracoes finais
+    ],
+    "post_textual": [
+        "referencias",
+    ],
+}
+
+# Elementos obrigatórios da NBR 6022:2018 (Artigos Científicos Periódicos)
+MANDATORY_ELEMENTS_6022: dict[str, list[str]] = {
+    "pre_textual": [
+        "resumo",
+        "abstract",
+    ],
+    "textual": [
+        "introducao",
+        "desenvolvimento",
+        "conclusao",
     ],
     "post_textual": [
         "referencias",
@@ -92,12 +109,32 @@ ELEMENT_PATTERNS: dict[str, re.Pattern] = {
 def check_project_structure(project_path: str | Path, standard: str = "ABNT_14724") -> StructureCheckResult:
     """
     Verifica a presença e a conformidade dos elementos pré-textuais, textuais
-    e pós-textuais de acordo com a ABNT NBR 14724:2011 e NBR 6024:2012.
+    e pós-textuais de acordo com a ABNT NBR 14724:2011, NBR 6022:2018 e NBR 6024:2012.
     Suporta diretórios, arquivos-fonte (.tex, .md, .typ) e arquivos .pdf finais.
+    Auto-detecta o perfil normativo de 'abnt.spec.json' quando presente no projeto.
     """
     path = Path(project_path)
     if not path.exists():
         raise FileNotFoundError(f"Caminho do projeto não encontrado: {path}")
+
+    project_dir = path if path.is_dir() else path.parent
+
+    # Auto-detecta padrão normativo a partir de abnt.spec.json se o usuário não forçou outro
+    effective_standard = standard.upper().strip()
+    spec_file = project_dir / "abnt.spec.json"
+    if effective_standard == "ABNT_14724" and spec_file.is_file():
+        try:
+            import json
+            spec_raw = json.loads(spec_file.read_text(encoding="utf-8"))
+            spec_std = spec_raw.get("profile", {}).get("standard", "")
+            if spec_std in {"ABNT_14724", "ABNT_6022"}:
+                effective_standard = spec_std
+        except Exception:
+            pass
+
+    is_article_6022 = "6022" in effective_standard
+    active_mandatory = MANDATORY_ELEMENTS_6022 if is_article_6022 else MANDATORY_ELEMENTS
+    structure_rule_id = "NBR6022-R01" if is_article_6022 else "NBR14724-R01"
 
     # Coleta todo o texto do projeto
     all_content: list[str] = []
@@ -113,12 +150,13 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
             file_count = 1
 
             # Auditoria estrita de paginação no PDF conforme a ABNT NBR 14724 (item 5.3)
-            try:
-                pag_audit = audit_pdf_pagination(path)
-                if not pag_audit["is_compliant"]:
-                    pagination_issues = pag_audit["issues"]
-            except Exception:
-                pass
+            if not is_article_6022:
+                try:
+                    pag_audit = audit_pdf_pagination(path)
+                    if not pag_audit["is_compliant"]:
+                        pagination_issues = pag_audit["issues"]
+                except Exception:
+                    pass
         else:
             files = [path]
             for f in files:
@@ -131,6 +169,7 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
         files = [
             f for f in path.rglob("*")
             if f.is_file() and f.suffix.lower() in {".tex", ".md", ".typ"}
+            and f.name != "SPEC.md"
             and not any(p.startswith(".") or p in {"build", "dist", ".venv"} for p in f.parts)
         ]
         for f in files:
@@ -147,12 +186,20 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
         if pattern.search(combined_text):
             elements_found.add(elem_name)
 
+    rule_violations: list[dict[str, str]] = []
+
     # Checa obrigatórios
     missing_mandatory: list[str] = []
-    for category, items in MANDATORY_ELEMENTS.items():
+    for category, items in active_mandatory.items():
         for item in items:
             if item not in elements_found:
                 missing_mandatory.append(f"{item} ({category})")
+                rule_violations.append({
+                    "rule_id": structure_rule_id,
+                    "standard": NORMATIVE_RULES[structure_rule_id]["standard"],
+                    "severity": NORMATIVE_RULES[structure_rule_id]["severity"],
+                    "message": f"Elemento obrigatório ausente: '{item}' ({category}).",
+                })
 
     # Checa opcionais presentes
     optional_present = [elem for elem in OPTIONAL_ELEMENTS if elem in elements_found]
@@ -161,19 +208,30 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
     section_warnings: list[str] = []
     invalid_dot_matches = RE_INVALID_SECTION_DOT.findall(combined_text)
     for num, title in invalid_dot_matches:
-        section_warnings.append(
-            f"Seção '{num}. {title}' possui ponto após o último algarismo (NBR 6024 exige '{num} {title}')."
-        )
+        msg = f"Seção '{num}. {title}' possui ponto após o último algarismo (NBR 6024 exige '{num} {title}')."
+        section_warnings.append(msg)
+        rule_violations.append({
+            "rule_id": "NBR6024-R01",
+            "standard": NORMATIVE_RULES["NBR6024-R01"]["standard"],
+            "severity": NORMATIVE_RULES["NBR6024-R01"]["severity"],
+            "message": msg,
+        })
 
     # Incorpora avisos de paginação NBR 14724 se houver
     has_critical_pagination_error = False
     for p_iss in pagination_issues:
         section_warnings.append(f"[Paginação NBR 14724] {p_iss['message']}")
+        rule_violations.append({
+            "rule_id": "NBR14724-R02",
+            "standard": NORMATIVE_RULES["NBR14724-R02"]["standard"],
+            "severity": str(p_iss.get("severity", "critical")),
+            "message": p_iss["message"],
+        })
         if p_iss.get("severity") == "critical":
             has_critical_pagination_error = True
 
     # Cálculo da pontuação
-    total_mandatory = sum(len(items) for items in MANDATORY_ELEMENTS.values())
+    total_mandatory = sum(len(items) for items in active_mandatory.values())
     found_mandatory = total_mandatory - len(missing_mandatory)
     base_score = int((found_mandatory / total_mandatory) * 100) if total_mandatory else 100
 
@@ -195,26 +253,27 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
         recommendations.append(
             "Remova os pontos ao final dos números de seções (use '1.1 Seção' em vez de '1.1. Seção')."
         )
-    if "folha de aprovacao" not in elements_found:
+    if not is_article_6022 and "folha de aprovacao" not in elements_found:
         recommendations.append(
             "Lembre-se de adicionar a Folha de Aprovação na versão final para a banca examinadora."
         )
     if "resumo" in elements_found and "abstract" in elements_found:
         recommendations.append(
-            "Certifique-se de que o Resumo e o Abstract contenham de 150 a 500 palavras e de 3 a 5 palavras-chave."
+            "Certifique-se de que o Resumo e o Abstract contenham de 150 a 500 palavras (100 a 250 para artigos) e de 3 a 5 palavras-chave."
         )
 
     is_valid = len(missing_mandatory) == 0 and final_score >= 80 and not has_critical_pagination_error
 
     return StructureCheckResult(
-        standard="NBR 14724:2011",
+        standard="NBR 6022:2018" if is_article_6022 else "NBR 14724:2011",
         is_valid=is_valid,
         compliance_score=final_score,
-        document_type="TCC / Dissertação / Tese ABNT",
+        document_type="Artigo Científico Periódico (ABNT NBR 6022)" if is_article_6022 else "TCC / Dissertação / Tese ABNT",
         missing_mandatory=missing_mandatory,
         optional_elements_present=optional_present,
         elements_found=sorted(list(elements_found)),
         section_warnings=section_warnings[:10],
+        rule_violations=rule_violations,
         recommendations=recommendations,
     )
 
