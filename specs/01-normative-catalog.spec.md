@@ -32,3 +32,18 @@
 2. **Proibição de ponto após indicativo de seção (`NBR6024-R01`):** Títulos de seção seguem estritamente `<indicativo> <espaço> <Título>` (ex.: `2.1 Metodologia`).
 3. **Invariante de Paginação (`NBR14724-R02`):** A capa nunca é contada; a contagem inicia na folha de rosto; números de página só são impressos a partir da primeira folha textual (Introdução), no canto superior direito.
 4. **Abreviatura do mês de maio (`NBR6023-R01`):** O termo `mai.` com ponto é inválido; a única forma admitida em português pela NBR 6023:2018 é `maio`.
+
+---
+
+## 3. Modelo Unificado de Diagnóstico (`DiagnosticItem`)
+
+Para garantir transparência científica e evitar que análises heurísticas sejam confundidas com exigências estritas da ABNT, todos os validadores emitem instâncias de `DiagnosticItem` (`src/abnt_mcp/models.py`) contendo:
+
+- `rule_id`: Identificador canônico da regra (`NORMATIVE_RULES`, ex.: `NBR10520-R01`) ou código heurístico/institucional (`HEURISTIC-TONE-01`, `INST-PROFILE-01`).
+- `nature`:
+  - `"normative"`: Exigência formal de norma ABNT ou IBGE vigente.
+  - `"heuristic"`: Recomendação estilística/editorial ou inferência textual que requer discernimento do autor.
+  - `"institutional"`: Diretriz específica da universidade/periódico definida em `NormativeProfile`.
+- `severity`: `"info"` | `"warning"` | `"error"` | `"critical"`.
+- `confidence`: `"high"` | `"medium"` | `"low"`.
+- `human_review_required`: `bool` (`False` para regras determinísticas exatas; `True` para análises heurísticas de linguagem e semântica).

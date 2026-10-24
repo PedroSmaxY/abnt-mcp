@@ -68,6 +68,22 @@ class ReferenceInput(BaseModel):
     )
 
 
+class DiagnosticItem(BaseModel):
+    """Modelo unificado de diagnóstico (diferencia regra normativa estrita de heurística editorial)."""
+    rule_id: str = Field(..., description="ID canônico (ex: 'NBR10520-R01') ou código heurístico ('HEURISTIC-TONE-01')")
+    nature: Literal["normative", "heuristic", "institutional"] = Field(
+        default="normative",
+        description="Natureza do diagnóstico: normative (ABNT/IBGE), heuristic (editorial/IA) ou institutional"
+    )
+    severity: Literal["info", "warning", "error", "critical"] = "warning"
+    confidence: Literal["high", "medium", "low"] = "high"
+    message: str
+    suggestion: str = ""
+    file: str | None = None
+    line: int | None = None
+    human_review_required: bool = False
+
+
 class ToneIssue(BaseModel):
     """Registro de inadequação de tom científico."""
     category: Literal["first_person", "value_judgment", "colloquialism", "ungrounded_paragraph"]
@@ -84,6 +100,10 @@ class ToneAnalysisResult(BaseModel):
     total_words: int
     issues_count: int
     issues: list[ToneIssue]
+    diagnostics: list[DiagnosticItem] = Field(
+        default_factory=list,
+        description="Diagnósticos unificados marcados como heuristic (requerem revisão humana)"
+    )
     summary: str
     suggested_rewrites: list[dict[str, str]]
 
@@ -102,6 +122,10 @@ class StructureCheckResult(BaseModel):
         default_factory=list,
         description="Lista de violações rastreáveis por ID canônico (ex: NBR14724-R01)"
     )
+    diagnostics: list[DiagnosticItem] = Field(
+        default_factory=list,
+        description="Lista de diagnósticos unificados"
+    )
     recommendations: list[str]
 
 
@@ -117,6 +141,10 @@ class CitationValidationResult(BaseModel):
     )
     uppercase_violations: list[dict[str, str | int]] = Field(
         description="Citações em caixa alta no texto violando a NBR 10520:2023"
+    )
+    diagnostics: list[DiagnosticItem] = Field(
+        default_factory=list,
+        description="Lista de diagnósticos normativos de citações e referências"
     )
     is_consistent: bool
 
