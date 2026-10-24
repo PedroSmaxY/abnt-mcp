@@ -10,6 +10,16 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 
 ## [Unreleased]
 
+### Adicionado
+- **Injeção Dinâmica de Elementos Pré-Textuais Institucionais no Scaffold (`src/abnt_mcp/pillars/spec.py`):**
+  - Implementação do gerador `_render_dynamic_pre_textual` que injeta automaticamente os 9 elementos pré-textuais do catálogo (`ficha catalografica`, `folha de aprovacao`, `dedicatoria`, `agradecimentos`, `epigrafe`, `lista de ilustracoes`, `lista de tabelas`, `lista de quadros` e `lista de abreviaturas`) nos esqueletos `typst`, `latex` e `markdown` gerados por `scaffold_academic_project`, respeitando a ordem canônica da ABNT NBR 14724:2011 e blindando contra numeração de página visível nas folhas pré-textuais (`NBR14724-R02`).
+- **Paridade de Detecção Pré-Textual (`src/abnt_mcp/pillars/diagnostics.py`):**
+  - Inclusão de `"ficha catalografica"` e `"lista de quadros"` em `OPTIONAL_ELEMENTS` e `ELEMENT_PATTERNS` para paridade integral entre `check_structure`, `extract_institutional_pattern_from_pdf` e `audit_research_spec`.
+
+### Corrigido
+- **Delimitação da Varredura Pré-Textual em PDFs (`src/abnt_mcp/parsers/pdf_reader.py`):**
+  - Interrupção da busca por elementos pré-textuais em `extract_institutional_pattern_from_pdf` assim que o `Sumário` ou a primeira seção textual (`Introdução`) é atingida, evitando falsos-positivos quando termos como `"Lista de Tabelas"` são mencionados no corpo do texto.
+
 ### Alterado
 - Refatoração do `CLAUDE.md` para atuar como apontador canônico direto para o `AGENTS.md` (Fonte Única da Verdade para governança SDD e regras normativas), mantendo apenas comandos rápidos de desenvolvimento e eliminando duplicação de regras.
 
