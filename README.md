@@ -212,13 +212,13 @@ tests/test_writing.py (11 testes)     -> Citações 2023, Referências 6023, Res
 Caso utilize o **ABNT Copilot MCP** no desenvolvimento de sua pesquisa, dissertação, tese ou artigo científico, cite o repositório em conformidade com a **ABNT NBR 6023:2018**:
 
 ```text
-DIAS, Pedro. ABNT Copilot MCP: servidor Model Context Protocol para padronização e conformidade acadêmica. Versão 0.1.0. GitHub, 2026. Disponível em: https://github.com/PedroSmaxY/abnt-mcp. Acesso em: 24 out. 2026.
+NOVAIS, Pedro Henrique da Silva. ABNT Copilot MCP: servidor Model Context Protocol para padronização e conformidade acadêmica. Versão 0.1.0. GitHub, 2026. Disponível em: https://github.com/PedroSmaxY/abnt-mcp. Acesso em: 24 out. 2026.
 ```
 
 Entrada BibTeX:
 ```bibtex
-@software{dias2026abntmcp,
-  author       = {Pedro Dias},
+@software{novais2026abntmcp,
+  author       = {Novais, Pedro Henrique da Silva},
   title        = {ABNT Copilot MCP: Servidor Model Context Protocol para Padronização e Conformidade Acadêmica},
   version      = {0.1.0},
   year         = {2026},
