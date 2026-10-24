@@ -12,13 +12,22 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+import pytest
 
-from abnt_mcp.config import NORMATIVE_RULES
+from abnt_mcp.config import (
+    NORMATIVE_RULES,
+    get_current_year,
+    get_default_author_source,
+    validate_safe_path,
+)
 from abnt_mcp.server import (
     init_research_spec,
     audit_research_spec,
     simulate_banca,
     check_structure,
+    format_figure,
+    format_table,
+    clean_bibtex_file,
     resource_guia_sdd,
     resource_template_spec,
 )
@@ -190,7 +199,7 @@ def test_audit_research_spec_detects_unfulfilled_objective_and_banca_questions(t
     """Verifica se objetivos não respondidos na Conclusão são sinalizados na auditoria e na banca."""
     init_research_spec(
         project_path=str(tmp_path),
-        title="Estudo sobreArtigos Científicos",
+        title="Estudo sobre Artigos Científicos",
         research_problem="Como estruturar artigos segundo a NBR 6022?",
         general_objective="Avaliar a conformidade de artigos científicos periódicos.",
         specific_objectives=[
@@ -270,3 +279,36 @@ def test_sdd_resources_content() -> None:
     tmpl_json = json.loads(tmpl_raw)
     assert tmpl_json["spec_version"] == "1.0"
     assert len(tmpl_json["specific_objectives"]) >= 2
+
+
+def test_dynamic_year_and_safe_path_and_bibtex_backup(tmp_path: Path) -> None:
+    """Testa ano dinâmico, bloqueio de path traversal e backup automático em .abnt-mcp/backups/."""
+    curr_year = str(get_current_year())
+    assert curr_year in get_default_author_source()
+
+    fig_res = format_figure(image_path="figuras/arq.png", caption="Arquitetura")
+    assert curr_year in fig_res["source"]
+
+    tab_res = format_table(title="Dados", headers=["A", "B"], rows=[["1", "2"]])
+    assert curr_year in tab_res["snippets"]["markdown"]
+
+    # Validação de path traversal fora de base_dir e byte nulo
+    with pytest.raises(ValueError, match="Path Traversal"):
+        validate_safe_path(tmp_path / ".." / "outside.txt", base_dir=tmp_path)
+
+    with pytest.raises(ValueError, match="Caminho inválido"):
+        validate_safe_path("   ")
+
+    # Backup automático antes de sobrescrever arquivo .bib existente
+    bib_path = tmp_path / "referencias.bib"
+    original_bib = "@article{Silva2023,\n  author = {Silva, J.},\n  title = {Teste},\n  month = {mai.},\n  year = {2023}\n}\n"
+    bib_path.write_text(original_bib, encoding="utf-8")
+
+    clean_res = clean_bibtex_file(str(bib_path))
+    assert clean_res["success"] is True
+    assert clean_res["backup_path"] is not None
+
+    backup_file = Path(clean_res["backup_path"])
+    assert backup_file.is_file()
+    assert backup_file.read_text(encoding="utf-8") == original_bib
+    assert "maio" in bib_path.read_text(encoding="utf-8")
