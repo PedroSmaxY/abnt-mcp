@@ -1,0 +1,41 @@
+name: "📐 Proposta de Especificação SDD (Feature / Tool Request)"
+description: "Propor uma nova ferramenta MCP, evolução do manifesto abnt.spec.json ou nova especificação sob SDD."
+title: "[SPEC] "
+labels: ["enhancement", "sdd"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        No **abnt-mcp**, novas funcionalidades seguem o fluxo **Spec-Driven Development (SDD)**: primeiro definimos a especificação em `specs/`, depois implementamos nos pilares e validamos no `pytest`.
+
+  - type: textarea
+    id: justification
+    attributes:
+      label: "1. Justificativa Científica e Caso de Uso"
+      description: "Qual problema de pesquisa, redação, auditoria ou compilação esta proposta resolve?"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target_spec
+    attributes:
+      label: "2. Camada de Especificação Principal"
+      options:
+        - "specs/01-normative-catalog.spec.md (Nova regra normativa ABNT/IBGE)"
+        - "specs/02-research-spec-schema.spec.md (Evolução do manifesto abnt.spec.json / SPEC.md)"
+        - "specs/03-mcp-tools-contract.spec.md (Nova @mcp.tool, @mcp.prompt ou @mcp.resource)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: contract_proposal
+    attributes:
+      label: "3. Rascunho do Contrato (Entrada, Saída e Regras)"
+      description: "Descreva os parâmetros de entrada, o schema Pydantic esperado e o comportamento determinístico."
+      placeholder: |
+        Tool: @mcp.tool def minha_nova_tool(...)
+        Rule ID: NBRXXXX-RXX
+        Critérios de Aceite:
+        1. ...
+    validations:
+      required: true

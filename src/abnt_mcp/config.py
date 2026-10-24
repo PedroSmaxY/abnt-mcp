@@ -7,6 +7,89 @@ SERVER_NAME = "abnt-mcp"
 SERVER_VERSION = "0.1.0"
 DEFAULT_USER_AGENT = f"{SERVER_NAME}/{SERVER_VERSION} (mailto:abnt-copilot@example.com)"
 
+# Catálogo de Regras Normativas Canônicas (Spec-Driven Development)
+# Sincronizado com specs/01-normative-catalog.spec.md
+NORMATIVE_RULES: dict[str, dict[str, str]] = {
+    "NBR14724-R01": {
+        "standard": "ABNT NBR 14724:2011",
+        "clause": "Seção 4.2",
+        "title": "Elementos pré-textuais, textuais e pós-textuais obrigatórios de monografias",
+        "severity": "error",
+    },
+    "NBR14724-R02": {
+        "standard": "ABNT NBR 14724:2011",
+        "clause": "Seção 5.3",
+        "title": "Paginação física: contagem na Folha de Rosto e impressão arábica a partir da Introdução",
+        "severity": "critical",
+    },
+    "NBR14724-R03": {
+        "standard": "ABNT NBR 14724:2011",
+        "clause": "Seção 5.8",
+        "title": "Ilustrações com título superior, chamada textual prévia e fonte inferior",
+        "severity": "warning",
+    },
+    "NBR6022-R01": {
+        "standard": "ABNT NBR 6022:2018",
+        "clause": "Seção 5",
+        "title": "Estrutura de artigo científico periódico (título, resumo, introdução, desenvolvimento, conclusão e referências)",
+        "severity": "error",
+    },
+    "NBR10520-R01": {
+        "standard": "ABNT NBR 10520:2023",
+        "clause": "Seção 4.2",
+        "title": "Sistema autor-data entre parênteses em caixa mista (Silva, 2023), vedada CAIXA ALTA",
+        "severity": "error",
+    },
+    "NBR10520-R02": {
+        "standard": "ABNT NBR 10520:2023",
+        "clause": "Seção 7.1",
+        "title": "Consistência cruzada estrita entre citações no texto e referências no arquivo .bib",
+        "severity": "error",
+    },
+    "NBR10520-R03": {
+        "standard": "ABNT NBR 10520:2023",
+        "clause": "Seções 5.2 / 5.3",
+        "title": "Formatação de citações diretas curtas (<=3 linhas, aspas) e longas (>3 linhas, recuo de 4 cm, fonte 10)",
+        "severity": "error",
+    },
+    "NBR6023-R01": {
+        "standard": "ABNT NBR 6023:2018",
+        "clause": "Anexo A (A.1)",
+        "title": "Abreviatura padronizada de meses (três caracteres com ponto, exceto 'maio' por extenso sem ponto)",
+        "severity": "warning",
+    },
+    "NBR6023-R02": {
+        "standard": "ABNT NBR 6023:2018",
+        "clause": "Seção 6.2",
+        "title": "Alinhamento à margem esquerda e destaque tipográfico exclusivo no título principal",
+        "severity": "error",
+    },
+    "NBR6024-R01": {
+        "standard": "ABNT NBR 6024:2012",
+        "clause": "Seção 4.1",
+        "title": "Numeração progressiva das seções sem ponto final após o último algarismo",
+        "severity": "warning",
+    },
+    "NBR6027-R01": {
+        "standard": "ABNT NBR 6027:2012",
+        "clause": "Seção 4",
+        "title": "Sumário restrito aos elementos textuais e pós-textuais (vedada inclusão de elementos pré-textuais)",
+        "severity": "error",
+    },
+    "NBR6028-R01": {
+        "standard": "ABNT NBR 6028:2021",
+        "clause": "Seção 3.3",
+        "title": "Resumo em parágrafo único contínuo na 3ª pessoa e palavras-chave separadas por ponto e vírgula",
+        "severity": "warning",
+    },
+    "IBGE1993-R01": {
+        "standard": "Normas Tabulares IBGE (1993)",
+        "clause": "Seção 3.1",
+        "title": "Distinção entre Tabela (dados quantitativos, laterais abertas) e Quadro (dados qualitativos, bordas fechadas)",
+        "severity": "error",
+    },
+}
+
 # Abreviatura oficial de meses segundo a NBR 6023:2018 (atenção ao 'maio' sem ponto!)
 ABNT_MONTHS: dict[str, str] = {
     "1": "jan.",

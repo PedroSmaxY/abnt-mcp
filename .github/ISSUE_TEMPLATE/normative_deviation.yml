@@ -1,0 +1,60 @@
+name: "⚖️ Desvio ou Atualização Normativa (ABNT / IBGE)"
+description: "Relatar divergência em relação às normas vigentes da ABNT/IBGE ou propor atualização de cláusula normativa sob SDD."
+title: "[NORMA] "
+labels: ["normative", "sdd"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Utilize este formulário quando identificar que uma validação, formatação ou template do **abnt-mcp** diverge de uma norma oficial vigente da **ABNT** ou do **IBGE**.
+        > **Nota SDD:** Toda correção normativa implicará a atualização de `specs/01-normative-catalog.spec.md` e `NORMATIVE_RULES`.
+
+  - type: dropdown
+    id: standard
+    attributes:
+      label: "Norma Técnica Afetada"
+      description: "Selecione a norma oficial correspondente ao desvio."
+      options:
+        - "ABNT NBR 14724:2011 (Trabalhos Acadêmicos — Estrutura e Paginação)"
+        - "ABNT NBR 10520:2023 (Citações em Documentos)"
+        - "ABNT NBR 6023:2018 / Errata 2020 (Referências Bibliográficas)"
+        - "ABNT NBR 6022:2018 (Artigos em Publicação Periódica Científica)"
+        - "ABNT NBR 6024:2012 (Numeração Progressiva das Seções)"
+        - "ABNT NBR 6027:2012 (Sumário)"
+        - "ABNT NBR 6028:2021 (Resumo, Resenha e Recensão)"
+        - "Normas de Apresentação Tabular do IBGE (1993)"
+        - "Outra Norma / Diretriz Institucional"
+    validations:
+      required: true
+
+  - type: input
+    id: clause_and_rule_id
+    attributes:
+      label: "Seção / Cláusula da Norma e ID Canônico (se existente)"
+      description: "Informe o item da norma e, se aplicável, o ID em specs/01-normative-catalog.spec.md."
+      placeholder: "Ex.: Seção 4.2 — ID: NBR10520-R01"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_behavior
+    attributes:
+      label: "Comportamento Atual Observado no abnt-mcp"
+      description: "Forneça a entrada utilizada e a saída/diagnóstico incorreto gerado pela ferramenta."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_normative_behavior
+    attributes:
+      label: "Comportamento Exigido pela Norma Oficial"
+      description: "Transcreva ou explique a diretriz exata da norma técnica e o resultado esperado."
+    validations:
+      required: true
+
+  - type: textarea
+    id: spec_impact
+    attributes:
+      label: "Impacto Proposto em specs/"
+      description: "Qual arquivo de especificação deve ser atualizado para contemplar esta regra?"
+      value: "- [ ] `specs/01-normative-catalog.spec.md`\n- [ ] `specs/02-research-spec-schema.spec.md`\n- [ ] `specs/03-mcp-tools-contract.spec.md`"

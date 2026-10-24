@@ -89,7 +89,7 @@ class ToneAnalysisResult(BaseModel):
 
 
 class StructureCheckResult(BaseModel):
-    """Resultado da validação estrutural da NBR 14724."""
+    """Resultado da validação estrutural da NBR 14724 / NBR 6022."""
     standard: str = "NBR 14724:2011"
     is_valid: bool
     compliance_score: int = Field(..., ge=0, le=100)
@@ -98,6 +98,10 @@ class StructureCheckResult(BaseModel):
     optional_elements_present: list[str]
     elements_found: list[str]
     section_warnings: list[str]
+    rule_violations: list[dict[str, str]] = Field(
+        default_factory=list,
+        description="Lista de violações rastreáveis por ID canônico (ex: NBR14724-R01)"
+    )
     recommendations: list[str]
 
 
@@ -127,3 +131,91 @@ class AcademicPaper(BaseModel):
     url: str | None = None
     abstract: str | None = None
     source: str
+
+
+# ==============================================================================
+# MODELOS DE SPEC-DRIVEN ACADEMIC WRITING (SDD)
+# ==============================================================================
+
+class NormativeProfile(BaseModel):
+    """Camada 1: Perfil normativo da especificação acadêmica."""
+    document_type: Literal["tcc", "dissertacao", "tese", "artigo"] = "tcc"
+    standard: Literal["ABNT_14724", "ABNT_6022"] = "ABNT_14724"
+    institution: str | None = None
+    emphasis_style: Literal["bold", "italic"] = "bold"
+    min_references: int = Field(default=15, ge=1)
+    min_scientific_tone_score: int = Field(default=80, ge=0, le=100)
+
+
+class SpecificObjective(BaseModel):
+    """Camada 2: Objetivo específico rastreável na matriz científica."""
+    id: str = Field(..., description="Identificador canônico, ex: 'OBJ-01'")
+    description: str = Field(..., description="Enunciado formal do objetivo específico")
+    keywords: list[str] = Field(
+        default_factory=list,
+        description="Termos/conceitos-chave que comprovam discussão e resolução do objetivo"
+    )
+    target_section: str | None = Field(
+        default=None,
+        description="Seção ou capítulo responsável por desenvolver este objetivo"
+    )
+
+
+class PlannedChapter(BaseModel):
+    """Camada 3: Capítulo ou seção planejada na estrutura do manuscrito."""
+    number: str = Field(..., description="Indicativo numérico (ex: '1', '2', '2.1')")
+    title: str = Field(..., description="Título planejado do capítulo/seção")
+    min_words: int = Field(default=200, ge=0)
+    min_citations: int = Field(default=1, ge=0)
+
+
+class ResearchSpec(BaseModel):
+    """Manifesto de Especificação Científica (abnt.spec.json)."""
+    spec_version: str = "1.0"
+    title: str
+    author: str | None = None
+    research_problem: str = Field(..., description="Pergunta de partida / problema de pesquisa")
+    general_objective: str = Field(..., description="Objetivo geral do estudo")
+    methodology_summary: str = Field(..., description="Abordagem, método e procedimentos")
+    specific_objectives: list[SpecificObjective] = Field(..., min_length=1)
+    profile: NormativeProfile = Field(default_factory=NormativeProfile)
+    planned_chapters: list[PlannedChapter] = Field(default_factory=list)
+
+
+class ObjectiveAuditItem(BaseModel):
+    """Resultado de auditoria individual de um objetivo específico (OBJ-XX)."""
+    id: str
+    description: str
+    status: Literal["fulfilled", "partial", "missing"]
+    covered_in_body: bool
+    answered_in_conclusion: bool
+    matched_keywords: list[str] = Field(default_factory=list)
+    missing_keywords: list[str] = Field(default_factory=list)
+    feedback: str
+
+
+class ChapterAuditItem(BaseModel):
+    """Resultado de auditoria de um capítulo planejado."""
+    number: str
+    title: str
+    found_in_document: bool
+    feedback: str
+
+
+class SpecAuditResult(BaseModel):
+    """Relatório consolidado de auditoria orientada a especificação (SDD)."""
+    spec_path: str
+    title: str
+    document_type: str
+    standard_applied: str
+    is_compliant: bool
+    spec_compliance_score: int = Field(..., ge=0, le=100)
+    structure_score: int = Field(..., ge=0, le=100)
+    objectives_fulfillment_rate: int = Field(..., ge=0, le=100)
+    tone_score: int = Field(..., ge=0, le=100)
+    references_count: int
+    min_references_required: int
+    objectives_audit: list[ObjectiveAuditItem]
+    chapters_audit: list[ChapterAuditItem]
+    normative_issues: list[dict[str, str]]
+    recommendations: list[str]
