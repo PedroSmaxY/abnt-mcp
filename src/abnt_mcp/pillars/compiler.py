@@ -1,7 +1,7 @@
 """Pilar 3: Testar & Compilar.
 
-Compilador multi-engine (LaTeX abnTeX2, Typst, Pandoc/Markdown) com
-pré-checagem estrutural, ciclo multi-pass e linter de sintaxe com diagnóstico amigável.
+Compilador multi-engine (Typst nativo embutido em Python, LaTeX abnTeX2, Pandoc/Markdown)
+com pré-checagem estrutural, ciclo multi-pass, linter de sintaxe e entrega direta de PDF.
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ def parse_latex_log_for_errors(log_content: str) -> list[dict[str, Any]]:
             })
 
     # Procura referências indefinidas (ex: LaTeX Warning: Citation `xxx' on page X undefined)
-    for match in re.finditer(r"LaTeX Warning: Citation `([^']+)' on page \d+ undefined", log_content):
+    for match in re.finditer(r"LaTeX Warning: Citation [`']([^'`]+)['`] on page \d+ undefined", log_content):
         errors.append({
             "message": f"Citação indefinida: '{match.group(1)}'. Verifique se consta no arquivo .bib.",
             "line": None,
@@ -107,10 +107,79 @@ def parse_latex_log_for_errors(log_content: str) -> list[dict[str, Any]]:
     return errors
 
 
+def convert_markdown_to_typst(md_content: str, title: str = "Trabalho Acadêmico", author: str = "Autor") -> str:
+    """Converte conteúdo Markdown para formato Typst estruturado no padrão ABNT NBR 14724."""
+    # Remove metadados YAML se existirem
+    clean_md = re.sub(r"^---\n.*?\n---\n", "", md_content, flags=re.DOTALL)
+    
+    # Extrai título ou autor do YAML se presente
+    title_match = re.search(r'title:\s*["\']?([^"\']+)["\']?', md_content)
+    if title_match:
+        title = title_match.group(1).strip()
+    author_match = re.search(r'author:\s*["\']?([^"\']+)["\']?', md_content)
+    if author_match:
+        author = author_match.group(1).strip()
+
+    # Normaliza URLs entre colchetes angulares <http...> para evitar conflito com labels do Typst
+    clean_md = re.sub(r"<(https?://[^>]+)>", r" \1 ", clean_md)
+    clean_md = re.sub(r"<[^>]+>", "", clean_md)
+
+    # Preâmbulo Typst ABNT com margens 3-3-2-2 e numeração de páginas
+    typst_doc = f"""#set document(title: "{title}", author: "{author}")
+#set page(
+  paper: "a4",
+  margin: (top: 3cm, left: 3cm, bottom: 2cm, right: 2cm),
+  header: context {{
+    let p = counter(page).get().first()
+    if p > 2 [
+      #align(right)[#text(size: 10pt)[#p]]
+    ]
+  }}
+)
+#set text(size: 12pt, lang: "pt", region: "BR")
+#set par(justify: true, leading: 1.5em, first-line-indent: 1.25cm)
+
+#show heading.where(level: 1): it => {{
+  pagebreak(weak: true)
+  v(1cm)
+  text(weight: "bold")[#it.body]
+  v(1cm)
+}}
+
+"""
+    # Converte cabeçalhos
+    lines = clean_md.splitlines()
+    converted_lines = []
+    for line in lines:
+        # Headers
+        h1 = re.match(r"^#\s+(.+)$", line)
+        h2 = re.match(r"^##\s+(.+)$", line)
+        h3 = re.match(r"^###\s+(.+)$", line)
+        h4 = re.match(r"^####\s+(.+)$", line)
+
+        if h1:
+            converted_lines.append(f"= {h1.group(1).strip()}")
+        elif h2:
+            converted_lines.append(f"== {h2.group(1).strip()}")
+        elif h3:
+            converted_lines.append(f"=== {h3.group(1).strip()}")
+        elif h4:
+            converted_lines.append(f"==== {h4.group(1).strip()}")
+        else:
+            # Converte citações estilo pandoc [@key] para @key
+            l_cite = re.sub(r"\[@([a-zA-Z0-9_\-]+)\]", r"@\1", line)
+            # Remove marcadores de HTML de quebra de página
+            l_clean = re.sub(r"\\newpage", "#pagebreak()", l_cite)
+            converted_lines.append(l_clean)
+
+    typst_doc += "\n".join(converted_lines)
+    return typst_doc
+
+
 def compile_project(project_path: str | Path, engine: str = "auto") -> dict[str, Any]:
     """
     Compila o projeto acadêmico para PDF utilizando o engine apropriado
-    (LaTeX, Pandoc ou Typst) com pré-checagens e diagnóstico de erros.
+    (Typst embutido, LaTeX ou Pandoc) com diagnóstico amigável e geração direta do PDF.
     """
     path = Path(project_path)
     if not path.exists():
@@ -126,33 +195,39 @@ def compile_project(project_path: str | Path, engine: str = "auto") -> dict[str,
         if path.is_file():
             main_file = path
             ext = path.suffix.lower()
-            if ext == ".tex":
-                selected_engine = "latex"
+            if ext == ".typ":
+                selected_engine = "typst"
+            elif ext == ".tex":
+                # Se tem typst embutido mas não tem pdflatex, pode priorizar typst
+                selected_engine = "latex" if (shutil.which("latexmk") or shutil.which("pdflatex")) else "latex"
             elif ext in {".md", ".markdown"}:
-                selected_engine = "markdown"
-            elif ext == ".typ":
+                # Markdown pode compilar direto via Typst nativo embutido!
                 selected_engine = "typst"
         else:
             # Procura arquivos principais comuns no diretório
-            candidates_tex = list(target_dir.glob("main.tex")) or list(target_dir.glob("tcc.tex")) or list(target_dir.glob("*.tex"))
             candidates_typ = list(target_dir.glob("main.typ")) or list(target_dir.glob("*.typ"))
+            candidates_tex = list(target_dir.glob("main.tex")) or list(target_dir.glob("tcc.tex")) or list(target_dir.glob("*.tex"))
             candidates_md = list(target_dir.glob("main.md")) or list(target_dir.glob("tcc.md")) or list(target_dir.glob("*.md"))
 
             if candidates_typ:
                 selected_engine = "typst"
                 main_file = candidates_typ[0]
-            elif candidates_tex:
+            elif candidates_tex and (shutil.which("latexmk") or shutil.which("pdflatex")):
                 selected_engine = "latex"
                 main_file = candidates_tex[0]
             elif candidates_md:
-                selected_engine = "markdown"
+                # Markdown compila diretamente para PDF via Typst embutido!
+                selected_engine = "typst"
                 main_file = candidates_md[0]
+            elif candidates_tex:
+                selected_engine = "latex"
+                main_file = candidates_tex[0]
             else:
                 return {
                     "success": False,
                     "engine": "none",
                     "error": "Nenhum arquivo fonte acadêmico (.tex, .typ, .md) encontrado no diretório.",
-                    "suggestions": ["Crie um arquivo main.tex, main.typ ou main.md no projeto."]
+                    "suggestions": ["Crie um arquivo main.typ, main.md ou main.tex no projeto."]
                 }
     else:
         if path.is_file():
@@ -171,18 +246,86 @@ def compile_project(project_path: str | Path, engine: str = "auto") -> dict[str,
                 }
 
     # Executa a compilação conforme o engine
-    if selected_engine == "latex":
-        return _compile_latex(main_file, target_dir)
-    elif selected_engine == "typst":
+    if selected_engine == "typst":
         return _compile_typst(main_file, target_dir)
+    elif selected_engine == "latex":
+        return _compile_latex(main_file, target_dir)
     elif selected_engine in {"markdown", "pandoc"}:
         return _compile_markdown(main_file, target_dir)
     else:
         return {
             "success": False,
             "engine": selected_engine,
-            "error": f"Engine desconhecido: '{selected_engine}'. Use 'latex', 'typst', 'markdown' ou 'auto'."
+            "error": f"Engine desconhecido: '{selected_engine}'. Use 'typst', 'latex', 'markdown' ou 'auto'."
         }
+
+
+def _compile_typst(main_file: Path, work_dir: Path) -> dict[str, Any]:
+    """Compilação nativa ultra-rápida via Typst (usando módulo Python typst embutido ou CLI)."""
+    output_pdf = work_dir / f"{main_file.stem}.pdf"
+
+    # Se o arquivo de entrada for Markdown, converte para Typst temporariamente para compilar direto
+    source_to_compile = main_file
+    is_temp_typst = False
+
+    if main_file.suffix.lower() in {".md", ".markdown"}:
+        try:
+            md_text = main_file.read_text(encoding="utf-8", errors="replace")
+            typst_converted = convert_markdown_to_typst(md_text, title=main_file.stem)
+            temp_typst_file = work_dir / f"{main_file.stem}_generated.typ"
+            temp_typst_file.write_text(typst_converted, encoding="utf-8")
+            source_to_compile = temp_typst_file
+            is_temp_typst = True
+        except Exception:
+            pass
+
+    # 1. Tenta compilação DIRETA via biblioteca embutida Python (Zero dependência externa!)
+    try:
+        import typst
+        typst.compile(source_to_compile, output=str(output_pdf))
+        if is_temp_typst and source_to_compile.exists():
+            source_to_compile.unlink(missing_ok=True)
+
+        if output_pdf.exists():
+            return {
+                "success": True,
+                "engine": "typst (python nativo embutido)",
+                "file": main_file.name,
+                "pdf_generated": str(output_pdf),
+                "size_bytes": output_pdf.stat().st_size,
+                "message": f"PDF ABNT compilado e entregue com sucesso: {output_pdf.name}"
+            }
+    except Exception as py_exc:
+        # Se falhou, tenta CLI se disponível
+        pass
+
+    # 2. Fallback via CLI executável
+    has_typst_cli = shutil.which("typst") is not None
+    if has_typst_cli:
+        cmd = ["typst", "compile", str(source_to_compile), str(output_pdf)]
+        try:
+            res = subprocess.run(cmd, cwd=str(work_dir), capture_output=True, text=True, timeout=45)
+            if is_temp_typst and source_to_compile.exists():
+                source_to_compile.unlink(missing_ok=True)
+
+            success = res.returncode == 0 and output_pdf.exists()
+            return {
+                "success": success,
+                "engine": "typst (cli)",
+                "file": main_file.name,
+                "pdf_generated": str(output_pdf) if success else None,
+                "size_bytes": output_pdf.stat().st_size if success else 0,
+                "message": "PDF compilado com sucesso via Typst CLI!" if success else f"Erro ao compilar Typst: {res.stderr}"
+            }
+        except Exception as exc:
+            pass
+
+    return {
+        "success": False,
+        "engine": "typst",
+        "file": main_file.name,
+        "error": "Não foi possível compilar o documento para PDF via Typst.",
+    }
 
 
 def _compile_latex(main_file: Path, work_dir: Path) -> dict[str, Any]:
@@ -220,38 +363,27 @@ def _compile_latex(main_file: Path, work_dir: Path) -> dict[str, Any]:
 
     try:
         if has_latexmk:
-            # Compilação inteligente multi-pass via latexmk
             cmd = ["latexmk", "-pdf", "-interaction=nonstopmode", main_file.name]
-            result = subprocess.run(
-                cmd,
-                cwd=str(work_dir),
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
+            subprocess.run(cmd, cwd=str(work_dir), capture_output=True, text=True, timeout=120)
         else:
-            # Ciclo multi-pass clássico para resolver todas as citações e sumários
-            # pdflatex -> bibtex -> pdflatex -> pdflatex
             cmd_pdf = ["pdflatex", "-interaction=nonstopmode", main_file.name]
             subprocess.run(cmd_pdf, cwd=str(work_dir), capture_output=True, timeout=60)
             if has_bibtex:
                 subprocess.run(["bibtex", job_name], cwd=str(work_dir), capture_output=True, timeout=30)
             subprocess.run(cmd_pdf, cwd=str(work_dir), capture_output=True, timeout=60)
-            result = subprocess.run(cmd_pdf, cwd=str(work_dir), capture_output=True, text=True, timeout=60)
+            subprocess.run(cmd_pdf, cwd=str(work_dir), capture_output=True, text=True, timeout=60)
 
-        # Diagnóstico a partir do log
         parsed_errors: list[dict[str, Any]] = []
         if log_file.exists():
             log_text = log_file.read_text(encoding="utf-8", errors="replace")
             parsed_errors = parse_latex_log_for_errors(log_text)
-
-        success = output_pdf.exists() and len([e for e in parsed_errors if e.get("line") is not None]) == 0
 
         return {
             "success": output_pdf.exists(),
             "engine": "latex (abnTeX2)",
             "file": main_file.name,
             "pdf_generated": str(output_pdf) if output_pdf.exists() else None,
+            "size_bytes": output_pdf.stat().st_size if output_pdf.exists() else 0,
             "log_file": str(log_file) if log_file.exists() else None,
             "errors": parsed_errors[:10],
             "precheck_lint_issues": lint_issues,
@@ -274,89 +406,30 @@ def _compile_latex(main_file: Path, work_dir: Path) -> dict[str, Any]:
         }
 
 
-def _compile_typst(main_file: Path, work_dir: Path) -> dict[str, Any]:
-    """Compilação nativa ultra-rápida via Typst."""
-    has_typst = shutil.which("typst") is not None
-
-    if not has_typst:
-        return {
-            "success": False,
-            "engine": "typst",
-            "file": main_file.name,
-            "error": "Executável 'typst' não encontrado no sistema operacional.",
-            "install_guide": (
-                "Para compilar com Typst:\n"
-                "- Windows: winget install --id Typst.Typst ou cargo install --locked typst-cli\n"
-                "- macOS: brew install typst\n"
-                "- Linux: cargo install --locked typst-cli"
-            )
-        }
-
-    output_pdf = work_dir / f"{main_file.stem}.pdf"
-    cmd = ["typst", "compile", str(main_file), str(output_pdf)]
-
-    try:
-        res = subprocess.run(cmd, cwd=str(work_dir), capture_output=True, text=True, timeout=45)
-        success = res.returncode == 0 and output_pdf.exists()
-        return {
-            "success": success,
-            "engine": "typst",
-            "file": main_file.name,
-            "pdf_generated": str(output_pdf) if success else None,
-            "stdout": res.stdout,
-            "stderr": res.stderr,
-            "message": "PDF compilado com Typst com sucesso!" if success else f"Erro ao compilar Typst: {res.stderr}"
-        }
-    except Exception as exc:
-        return {
-            "success": False,
-            "engine": "typst",
-            "file": main_file.name,
-            "error": str(exc),
-        }
-
-
 def _compile_markdown(main_file: Path, work_dir: Path) -> dict[str, Any]:
-    """Compilação Markdown via Pandoc com --citeproc."""
+    """Compilação Markdown via Pandoc com --citeproc ou fallback para Typst nativo."""
     has_pandoc = shutil.which("pandoc") is not None
 
-    if not has_pandoc:
-        return {
-            "success": False,
-            "engine": "pandoc/markdown",
-            "file": main_file.name,
-            "error": "Executável 'pandoc' não encontrado no sistema operacional.",
-            "install_guide": (
-                "Para compilar Markdown para PDF via Pandoc:\n"
-                "- Windows: winget install JohnMacFarlane.Pandoc\n"
-                "- macOS: brew install pandoc\n"
-                "- Linux: sudo apt install pandoc"
-            )
-        }
+    if has_pandoc:
+        output_pdf = work_dir / f"{main_file.stem}.pdf"
+        bib_files = list(work_dir.glob("*.bib"))
+        cmd = ["pandoc", str(main_file), "-o", str(output_pdf), "--citeproc", "--pdf-engine=xelatex"]
+        if bib_files:
+            cmd.extend(["--bibliography", str(bib_files[0])])
 
-    output_pdf = work_dir / f"{main_file.stem}.pdf"
-    
-    # Procura arquivo .bib no diretório para citar automaticamente
-    bib_files = list(work_dir.glob("*.bib"))
-    cmd = ["pandoc", str(main_file), "-o", str(output_pdf), "--citeproc", "--pdf-engine=xelatex"]
-    if bib_files:
-        cmd.extend(["--bibliography", str(bib_files[0])])
+        try:
+            res = subprocess.run(cmd, cwd=str(work_dir), capture_output=True, text=True, timeout=90)
+            if res.returncode == 0 and output_pdf.exists():
+                return {
+                    "success": True,
+                    "engine": "pandoc/markdown",
+                    "file": main_file.name,
+                    "pdf_generated": str(output_pdf),
+                    "size_bytes": output_pdf.stat().st_size,
+                    "message": "PDF compilado com Pandoc com sucesso!"
+                }
+        except Exception:
+            pass
 
-    try:
-        res = subprocess.run(cmd, cwd=str(work_dir), capture_output=True, text=True, timeout=90)
-        success = res.returncode == 0 and output_pdf.exists()
-        return {
-            "success": success,
-            "engine": "pandoc/markdown",
-            "file": main_file.name,
-            "pdf_generated": str(output_pdf) if success else None,
-            "stderr": res.stderr,
-            "message": "PDF compilado com Pandoc com sucesso!" if success else f"Erro ao compilar Pandoc: {res.stderr}"
-        }
-    except Exception as exc:
-        return {
-            "success": False,
-            "engine": "pandoc/markdown",
-            "file": main_file.name,
-            "error": str(exc),
-        }
+    # Fallback automático: compila via Typst embutido direto para PDF!
+    return _compile_typst(main_file, work_dir)

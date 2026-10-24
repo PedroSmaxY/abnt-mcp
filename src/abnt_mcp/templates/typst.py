@@ -10,13 +10,13 @@ TYPST_TEMPLATE = r"""// ========================================================
 #set page(
   paper: "a4",
   margin: (top: 3cm, left: 3cm, bottom: 2cm, right: 2cm),
-  header: locate(loc => {
+  header: context {
     // A numeração de página só aparece a partir da parte textual (Introdução)
-    let page_num = loc.page()
+    let page_num = counter(page).get().first()
     if page_num > 3 [
       #align(right)[#text(size: 10pt)[#page_num]]
     ]
-  })
+  }
 )
 
 // Tipografia: Arial ou Times New Roman, Tamanho 12pt, Espaçamento 1.5x, Recuo 1.25cm
@@ -27,7 +27,7 @@ TYPST_TEMPLATE = r"""// ========================================================
 #show heading.where(level: 1): it => {
   pagebreak(weak: true)
   v(1cm)
-  text(weight: "bold")[#upper(it)]
+  text(weight: "bold")[#it.body]
   v(1cm)
 }
 
