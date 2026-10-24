@@ -285,8 +285,15 @@ def analyze_scientific_tone(text: str) -> ToneAnalysisResult:
         ]
 
         # Pronomes em 1ª pessoa
-        for token in line_tokens:
+        for token_idx, token in enumerate(line_tokens):
             if token in FIRST_PERSON_PRONOUNS:
+                # Disambiguação de 'nos': em português é contração da preposição 'em + os'
+                # quando seguido de substantivos ou adjetivos plurais
+                if token == "nos" and token_idx + 1 < len(line_tokens):
+                    next_token = line_tokens[token_idx + 1]
+                    if next_token.endswith("s") or next_token in {"mais", "menos", "quais", "seus", "suas", "outros", "outras", "dados", "casos", "setores"}:
+                        continue
+
                 issues.append(ToneIssue(
                     category="first_person",
                     term=token,

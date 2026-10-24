@@ -12,9 +12,16 @@ from abnt_mcp.models import CitationInput, ReferenceInput
 
 
 def capitalize_author_name(name: str) -> str:
-    """Capitaliza o sobrenome no padrão NBR 10520:2023 (apenas inicial maiúscula)."""
+    """Capitaliza o sobrenome no padrão NBR 10520:2023 (apenas inicial maiúscula, tratando hífens)."""
     parts = name.strip().split()
-    return " ".join(p.capitalize() for p in parts)
+    capitalized_parts = []
+    for part in parts:
+        if "-" in part:
+            subparts = [sp.capitalize() for sp in part.split("-")]
+            capitalized_parts.append("-".join(subparts))
+        else:
+            capitalized_parts.append(part.capitalize())
+    return " ".join(capitalized_parts)
 
 
 def format_citation_abnt(data: CitationInput) -> dict[str, Any]:
