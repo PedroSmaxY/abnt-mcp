@@ -1,0 +1,43 @@
+name: "🐛 Relato de Falha Técnica (Bug Report)"
+description: "Relatar erro de execução, falha em parser (BibTeX, PDF, LaTeX, Typst, Markdown) ou problema no servidor MCP."
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: pillar
+    attributes:
+      label: "Pilar / Módulo Afetado"
+      options:
+        - "Pilar 1: Diagnóstico e Estrutura (diagnostics.py)"
+        - "Pilar 2: Redação e Formatação (writing.py)"
+        - "Pilar 3: Compilação Typst / LaTeX / Pandoc (compiler.py)"
+        - "Pilar 4: Consultoria, DOI, Crossref/SciELO e Banca (advisory.py)"
+        - "Motor SDD: Manifesto abnt.spec.json (spec.py)"
+        - "Parsers: BibTeX, Citações ou PDF (parsers/)"
+        - "Servidor FastMCP / CLI (server.py)"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: "Ambiente de Execução (SO, Python, Cliente MCP)"
+      placeholder: "Ex.: macOS 15 / Ubuntu 24.04 | Python 3.12 | Claude Desktop / Cursor / Antigravity"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: "Passos para Reprodução e Entrada Mínima"
+      description: "Informe a chamada da tool MCP, parâmetros e trecho de arquivo (.tex, .typ, .md, .bib) que aciona o erro."
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Mensagem de Erro / Stack Trace"
+      render: shell
+    validations:
+      required: false
