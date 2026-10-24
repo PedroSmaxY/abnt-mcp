@@ -70,6 +70,7 @@ MANDATORY_ELEMENTS_6022: dict[str, list[str]] = {
 
 OPTIONAL_ELEMENTS: list[str] = [
     "lombada",
+    "ficha catalografica",
     "errata",
     "folha de aprovacao",
     "dedicatoria",
@@ -77,6 +78,7 @@ OPTIONAL_ELEMENTS: list[str] = [
     "epigrafe",
     "lista de ilustracoes",
     "lista de tabelas",
+    "lista de quadros",
     "lista de abreviaturas",
     "lista de simbolos",
     "glossario",
@@ -89,6 +91,7 @@ OPTIONAL_ELEMENTS: list[str] = [
 ELEMENT_PATTERNS: dict[str, re.Pattern] = {
     "capa": re.compile(r"(\\begin\{capa\}|\\imprimircapa|#imprimircapa|#page\(|title:|#set document\(title:|\buniversidade\b|\bfaculdade\b|\binstituto federal\b|\bcentro universit[áa]rio\b)", re.IGNORECASE),
     "folha de rosto": re.compile(r"(\\imprimirfolhaderosto|folha\s*de\s*rosto|titlepage|trabalho\s*de\s*conclus[ãa]o|disserta[çc][ãa]o|tese\s*apresentad|orientador:)", re.IGNORECASE),
+    "ficha catalografica": re.compile(r"(\\begin\{fichacatalografica\}|ficha\s*catalogr[áa]fica|dados\s*internacionais\s*de\s*cataloga[çc][ãa]o)", re.IGNORECASE),
     "folha de aprovacao": re.compile(r"(folha\s*de\s*aprova[çc][ãa]o|banca\s*examinadora|termo\s*de\s*aprova[çc][ãa]o)", re.IGNORECASE),
     "dedicatoria": re.compile(r"(\\begin\{dedicatoria\}|#dedicatoria|\bdedicat[óo]ria\b)", re.IGNORECASE),
     "agradecimentos": re.compile(r"(\\begin\{agradecimentos\}|#agradecimentos|\bagradecimentos\b)", re.IGNORECASE),
@@ -97,6 +100,7 @@ ELEMENT_PATTERNS: dict[str, re.Pattern] = {
     "abstract": re.compile(r"(\\begin\{abstract\}|#abstract|\b#?abstract\b)", re.IGNORECASE),
     "lista de ilustracoes": re.compile(r"(\\listoffigures|lista\s*de\s*ilustra[çc][õo]es|lista\s*de\s*figuras)", re.IGNORECASE),
     "lista de tabelas": re.compile(r"(\\listoftables|lista\s*de\s*tabelas)", re.IGNORECASE),
+    "lista de quadros": re.compile(r"(\\listofquadros|lista\s*de\s*quadros)", re.IGNORECASE),
     "lista de abreviaturas": re.compile(r"(\\listofsiglas|lista\s*de\s*(?:abreviaturas|siglas))", re.IGNORECASE),
     "sumario": re.compile(r"(\\tableofcontents|#outline\(|\b#?sum[áa]rio\b)", re.IGNORECASE),
     "introducao": re.compile(r"(\\chapter\{.*introdu[çc][ãa]o.*\}|#chapter\[.*introdu[çc][ãa]o.*\]|#heading\(.*introdu[çc][ãa]o.*\)|#+\s*1?\s*introdu[çc][ãa]o|^=\s*1?\s*introdu[çc][ãa]o|\b1\s+introdu[çc][ãa]o\b)", re.IGNORECASE | re.MULTILINE),

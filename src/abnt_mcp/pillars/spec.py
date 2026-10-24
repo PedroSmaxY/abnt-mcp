@@ -265,6 +265,326 @@ def init_project_spec(
     }
 
 
+def _render_dynamic_pre_textual(
+    format: Literal["typst", "latex", "markdown"],
+    spec: ResearchSpec,
+) -> tuple[str, str]:
+    """
+    Renderiza dinamicamente os blocos de elementos pré-textuais exigidos pela instituição
+    (`spec.profile.required_pre_textual`) na ordem estrita da ABNT NBR 14724:2011:
+    - Bloco pré-Resumo (após Folha de Rosto): Ficha Catalográfica, Folha de Aprovação, Dedicatória, Agradecimentos, Epígrafe.
+    - Bloco pós-Abstract (antes do Sumário): Lista de Ilustrações, Lista de Tabelas, Lista de Quadros, Lista de Abreviaturas e Siglas.
+    Garante estrita aderência à NBR14724-R02 (nenhum elemento pré-textual exibe número de página impresso).
+    """
+    req_normalized = {
+        unicodedata.normalize("NFKD", item.lower().strip()).encode("ascii", "ignore").decode("ascii")
+        for item in spec.profile.required_pre_textual
+    }
+    if not req_normalized:
+        return "", ""
+
+    year = get_current_year()
+    author = spec.author or "Autor do Trabalho"
+    title = spec.title
+    inst = spec.profile.institution or "Instituição de Ensino Superior"
+    advisor = spec.profile.advisor or "Prof. Dr. Nome do Orientador"
+    preamble = spec.profile.preamble_text or (
+        f"Trabalho de Conclusão de Curso apresentado à {inst} como requisito parcial para obtenção do título acadêmico."
+    )
+
+    pre_resumo_chunks: list[str] = []
+    post_abstract_chunks: list[str] = []
+
+    if format == "typst":
+        if "ficha catalografica" in req_normalized:
+            pre_resumo_chunks.append(f"""// --- FICHA CATALOGRÁFICA (NBR 14724) ---
+#v(1fr)
+#align(center)[
+  *Dados Internacionais de Catalogação na Publicação (CIP)* \\
+  *Ficha Catalográfica elaborada pela Biblioteca de {inst}*
+  #v(0.5cm)
+  #rect(width: 12.5cm, inset: 12pt, stroke: 0.5pt)[
+    #align(left)[
+      #text(size: 10pt)[
+        {author} \\
+        #h(1cm) {title} / {author}. -- Brasil, {year}. \\
+        #h(1cm) Orientador(a): {advisor}. \\
+        #h(1cm) 1. Pesquisa acadêmica. 2. Normas ABNT. I. Título.
+      ]
+    ]
+  ]
+]
+#pagebreak()
+""")
+
+        if "folha de aprovacao" in req_normalized:
+            pre_resumo_chunks.append(f"""// --- FOLHA DE APROVAÇÃO (NBR 14724) ---
+#align(center)[
+  *{author.upper()}*
+
+  #v(2cm)
+  #text(size: 14pt, weight: "bold")[{title.upper()}]
+]
+#v(1.5cm)
+#align(right)[
+  #block(width: 8.5cm)[
+    #set par(justify: true, leading: 0.65em, first-line-indent: 0cm)
+    #text(size: 10pt)[
+      {preamble}
+    ]
+  ]
+]
+#v(1cm)
+Aprovado em: _____ de _________________ de {year}.
+
+#v(1.5cm)
+#align(center)[
+  *BANCA EXAMINADORA*
+  #v(1cm)
+  #line(length: 10cm, stroke: 0.5pt) \\
+  {advisor} (Orientador)
+
+  #v(1cm)
+  #line(length: 10cm, stroke: 0.5pt) \\
+  Prof. Dr. Examinador 1 (Membro da Banca Examinadora)
+
+  #v(1cm)
+  #line(length: 10cm, stroke: 0.5pt) \\
+  Prof. Dr. Examinador 2 (Membro da Banca Examinadora)
+]
+#pagebreak()
+""")
+
+        if "dedicatoria" in req_normalized:
+            pre_resumo_chunks.append("""// --- DEDICATÓRIA (NBR 14724) ---
+#v(1fr)
+#align(right)[
+  #block(width: 8cm)[
+    #set par(first-line-indent: 0cm)
+    _Dedico este trabalho a todos que contribuíram para a realização desta pesquisa científica._
+  ]
+]
+#pagebreak()
+""")
+
+        if "agradecimentos" in req_normalized:
+            pre_resumo_chunks.append(f"""// --- AGRADECIMENTOS (NBR 14724) ---
+#align(center)[*AGRADECIMENTOS*]
+#v(1cm)
+Registro meus sinceros agradecimentos à {inst}, ao(à) orientador(a) {advisor} e a todos que colaboraram direta ou indiretamente para o desenvolvimento deste estudo.
+#pagebreak()
+""")
+
+        if "epigrafe" in req_normalized:
+            pre_resumo_chunks.append("""// --- EPÍGRAFE (NBR 14724) ---
+#v(1fr)
+#align(right)[
+  #block(width: 8cm)[
+    #set par(first-line-indent: 0cm)
+    _"A ciência consiste em substituir o saber que parecia seguro por uma teoria, ou seja, por algo problemático."_ \\
+    (Karl Popper)
+  ]
+]
+#pagebreak()
+""")
+
+        if "lista de ilustracoes" in req_normalized:
+            post_abstract_chunks.append("""// --- LISTA DE ILUSTRAÇÕES (NBR 14724) ---
+#align(center)[*LISTA DE ILUSTRAÇÕES*]
+#v(1cm)
+#outline(title: none, target: figure.where(kind: image))
+#pagebreak()
+""")
+
+        if "lista de tabelas" in req_normalized:
+            post_abstract_chunks.append("""// --- LISTA DE TABELAS (NBR 14724) ---
+#align(center)[*LISTA DE TABELAS*]
+#v(1cm)
+#outline(title: none, target: figure.where(kind: table))
+#pagebreak()
+""")
+
+        if "lista de quadros" in req_normalized:
+            post_abstract_chunks.append("""// --- LISTA DE QUADROS (NBR 14724) ---
+#align(center)[*LISTA DE QUADROS*]
+#v(1cm)
+#outline(title: none, target: figure.where(kind: "quadro"))
+#pagebreak()
+""")
+
+        if "lista de abreviaturas" in req_normalized:
+            post_abstract_chunks.append("""// --- LISTA DE ABREVIATURAS E SIGLAS (NBR 14724) ---
+#align(center)[*LISTA DE ABREVIATURAS E SIGLAS*]
+#v(1cm)
+#table(
+  columns: (2.5cm, 1fr),
+  stroke: none,
+  align: (left, left),
+  [ABNT], [Associação Brasileira de Normas Técnicas],
+  [IBGE], [Instituto Brasileiro de Geografia e Estatística],
+  [MCP], [Model Context Protocol],
+  [SDD], [Spec-Driven Development],
+)
+#pagebreak()
+""")
+
+    elif format == "latex":
+        if "ficha catalografica" in req_normalized:
+            pre_resumo_chunks.append(f"""\\begin{{fichacatalografica}}
+\\vspace*{{\\fill}}
+\\begin{{center}}
+\\textbf{{Ficha Catalográfica elaborada pela Biblioteca de {inst}}} \\\\
+\\fbox{{\\parbox{{12.5cm}}{{\\small {author}. \\textit{{{title}}}. Brasil, {year}. Orientador(a): {advisor}.}}}}
+\\end{{center}}
+\\end{{fichacatalografica}}
+""")
+
+        if "folha de aprovacao" in req_normalized:
+            pre_resumo_chunks.append(f"""\\begin{{folhadeaprovacao}}
+\\begin{{center}}
+{{\\ABNTEXchapterfont\\large\\MakeUppercase{{{author}}}}}
+\\vspace*{{\\fill}}\\\\{{\\ABNTEXchapterfont\\bfseries\\Large\\MakeUppercase{{{title}}}}}\\\\
+\\vspace*{{\\fill}}
+\\hspace{{.45\\textwidth}}
+\\begin{{minipage}}{{.5\\textwidth}}
+\\SingleSpacing
+{preamble}
+\\end{{minipage}}
+\\vspace*{{\\fill}}
+\\end{{center}}
+Trabalho aprovado em: \\_\\_\\_ de \\_\\_\\_\\_\\_\\_\\_\\_\\_\\_ de {year}.
+\\assinatura{{\\textbf{{{advisor}}} \\\\ Orientador(a)}}
+\\assinatura{{\\textbf{{Prof. Dr. Examinador 1}} \\\\ Banca Examinadora}}
+\\assinatura{{\\textbf{{Prof. Dr. Examinador 2}} \\\\ Banca Examinadora}}
+\\end{{folhadeaprovacao}}
+""")
+
+        if "dedicatoria" in req_normalized:
+            pre_resumo_chunks.append("""\\begin{dedicatoria}
+\\vspace*{\\fill}
+\\centering
+\\noindent
+\\textit{Dedico este trabalho a todos que contribuíram para a realização desta pesquisa.}
+\\vspace*{\\fill}
+\\end{dedicatoria}
+""")
+
+        if "agradecimentos" in req_normalized:
+            pre_resumo_chunks.append(f"""\\begin{{agradecimentos}}
+Agradeço à {inst}, ao(à) orientador(a) {advisor} e aos demais colaboradores desta pesquisa.
+\\end{{agradecimentos}}
+""")
+
+        if "epigrafe" in req_normalized:
+            pre_resumo_chunks.append("""\\begin{epigrafe}
+\\vspace*{\\fill}
+\\begin{flushright}
+\\textit{``A ciência consiste em substituir o saber que parecia seguro por uma teoria.'' \\\\ (Karl Popper)}
+\\end{flushright}
+\\end{epigrafe}
+""")
+
+        if "lista de ilustracoes" in req_normalized:
+            post_abstract_chunks.append("""% --- LISTA DE ILUSTRAÇÕES ---
+\\pdfbookmark[0]{\\listfigurename}{lof}
+\\listoffigures*
+\\cleardoublepage
+""")
+
+        if "lista de tabelas" in req_normalized:
+            post_abstract_chunks.append("""% --- LISTA DE TABELAS ---
+\\pdfbookmark[0]{\\listtablename}{lot}
+\\listoftables*
+\\cleardoublepage
+""")
+
+        if "lista de quadros" in req_normalized:
+            post_abstract_chunks.append("""% --- LISTA DE QUADROS ---
+\\pdfbookmark[0]{\\listofquadrosname}{loq}
+\\listofquadros*
+\\cleardoublepage
+""")
+
+        if "lista de abreviaturas" in req_normalized:
+            post_abstract_chunks.append("""% --- LISTA DE ABREVIATURAS E SIGLAS ---
+\\begin{siglas}
+  \\item[ABNT] Associação Brasileira de Normas Técnicas
+  \\item[IBGE] Instituto Brasileiro de Geografia e Estatística
+  \\item[MCP] Model Context Protocol
+  \\item[SDD] Spec-Driven Development
+\\end{siglas}
+""")
+
+    else:  # markdown
+        if "ficha catalografica" in req_normalized:
+            pre_resumo_chunks.append(f"""# Ficha Catalográfica {{.unnumbered}}
+
+Dados Internacionais de Catalogação na Publicação (CIP) — {inst}.
+{author}. *{title}*. {year}. Orientador(a): {advisor}.
+""")
+
+        if "folha de aprovacao" in req_normalized:
+            pre_resumo_chunks.append(f"""# Folha de Aprovação {{.unnumbered}}
+
+{preamble}
+
+Aprovado em: ___/___/{year}.
+
+- **{advisor}** — Orientador(a) (Banca Examinadora)
+- **Prof. Dr. Examinador 1** — Membro da Banca Examinadora
+- **Prof. Dr. Examinador 2** — Membro da Banca Examinadora
+""")
+
+        if "dedicatoria" in req_normalized:
+            pre_resumo_chunks.append("""# Dedicatória {.unnumbered}
+
+*Dedico este trabalho a todos que contribuíram para a realização desta pesquisa.*
+""")
+
+        if "agradecimentos" in req_normalized:
+            pre_resumo_chunks.append(f"""# Agradecimentos {{.unnumbered}}
+
+Agradeço à {inst}, ao(à) orientador(a) {advisor} e aos demais colaboradores deste estudo.
+""")
+
+        if "epigrafe" in req_normalized:
+            pre_resumo_chunks.append("""# Epígrafe {.unnumbered}
+
+> *"A ciência consiste em substituir o saber que parecia seguro por uma teoria."* (Karl Popper)
+""")
+
+        if "lista de ilustracoes" in req_normalized:
+            post_abstract_chunks.append("""# Lista de Ilustrações {.unnumbered}
+
+- Figura 1 – Arquitetura do Estudo
+""")
+
+        if "lista de tabelas" in req_normalized:
+            post_abstract_chunks.append("""# Lista de Tabelas {.unnumbered}
+
+- Tabela 1 – Indicadores Quantitativos
+""")
+
+        if "lista de quadros" in req_normalized:
+            post_abstract_chunks.append("""# Lista de Quadros {.unnumbered}
+
+- Quadro 1 – Síntese Conceitual
+""")
+
+        if "lista de abreviaturas" in req_normalized:
+            post_abstract_chunks.append("""# Lista de Abreviaturas e Siglas {.unnumbered}
+
+- **ABNT**: Associação Brasileira de Normas Técnicas
+- **IBGE**: Instituto Brasileiro de Geografia e Estatística
+- **MCP**: Model Context Protocol
+- **SDD**: Spec-Driven Development
+""")
+
+    pre_str = ("\n" + "\n".join(pre_resumo_chunks)) if pre_resumo_chunks else ""
+    post_str = ("\n" + "\n".join(post_abstract_chunks)) if post_abstract_chunks else ""
+    return pre_str, post_str
+
+
 def _render_scaffolded_typst(spec: ResearchSpec) -> str:
     """Gera um manuscrito Typst completo e compilável customizado com o perfil institucional e SDD."""
     year = get_current_year()
@@ -283,6 +603,7 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
     )
     advisor_line = f"Orientador(a): {spec.profile.advisor}" if spec.profile.advisor else "Orientador(a): Prof. Dr. Nome do Orientador"
     concl_title = spec.profile.conclusion_label.upper()
+    pre_resumo_block, post_abstract_block = _render_dynamic_pre_textual("typst", spec)
 
     return f"""// =========================================================================
 // PROJETO ACADÊMICO ABNT (NBR 14724 / NBR 10520:2023 / NBR 6023:2018)
@@ -343,7 +664,7 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
   *{year}*
 ]
 #pagebreak()
-
+{pre_resumo_block}
 // --- RESUMO (NBR 6028:2021) ---
 #align(center)[*RESUMO*]
 #v(1cm)
@@ -365,7 +686,7 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
   *Keywords:* ABNT; scientific research; methodology; specification.
 ]
 #pagebreak()
-
+{post_abstract_block}
 // --- SUMÁRIO (NBR 6027:2012) ---
 #align(center)[*SUMÁRIO*]
 #v(1cm)
@@ -415,6 +736,7 @@ def _render_scaffolded_latex(spec: ResearchSpec) -> str:
         logo_cmd = f"% Logotipo Institucional na Capa\n% \\includegraphics[width=3cm]{{{spec.profile.cover_logo_path}}}\n"
 
     concl_title = spec.profile.conclusion_label
+    pre_resumo_block, post_abstract_block = _render_dynamic_pre_textual("latex", spec)
 
     return f"""\\documentclass[12pt,openright,oneside,a4paper,english,brazil]{{abntex2}}
 \\usepackage[utf8]{{inputenc}}
@@ -436,7 +758,7 @@ def _render_scaffolded_latex(spec: ResearchSpec) -> str:
 \\begin{{document}}
 \\imprimircapa
 \\imprimirfolhaderosto*
-
+{pre_resumo_block}
 \\begin{{resumo}}
 {spec.general_objective} Metodologia: {spec.methodology_summary}
 
@@ -454,7 +776,7 @@ This study addresses the research problem using a spec-driven academic methodolo
 \\textbf{{Keywords}}: ABNT; scientific research; specification.
 \\end{{otherlanguage*}}
 \\end{{resumo}}
-
+{post_abstract_block}
 \\pdfbookmark[0]{{\\contentsname}}{{toc}}
 \\tableofcontents*
 \\cleardoublepage
@@ -495,6 +817,7 @@ def _render_scaffolded_markdown(spec: ResearchSpec) -> str:
     if spec.profile.has_cover_logo and spec.profile.cover_logo_path:
         logo_md = f"![Logotipo Institucional]({spec.profile.cover_logo_path})\n\n"
     concl_title = spec.profile.conclusion_label
+    pre_resumo_block, post_abstract_block = _render_dynamic_pre_textual("markdown", spec)
 
     return f"""---
 title: "{spec.title}"
@@ -516,7 +839,7 @@ bibliography: referencias.bib
 <!-- FOLHA DE ROSTO -->
 {preamble}
 Orientador(a): {advisor}
-
+{pre_resumo_block}
 # Resumo {{.unnumbered}}
 
 {spec.general_objective} Metodologia: {spec.methodology_summary}
@@ -528,7 +851,7 @@ Orientador(a): {advisor}
 This academic work addresses the proposed research problem with a spec-driven methodology.
 
 **Keywords:** ABNT; scientific research; specification.
-
+{post_abstract_block}
 # Sumário {{.unnumbered}}
 
 1. Introdução

@@ -29,7 +29,7 @@ Define sob qual regime normativo e padrão institucional (aprendido via PDF de e
 - `has_cover_logo`: Indica se a capa institucional exige brasão/logotipo (`bool`, padrão: `false`).
 - `cover_logo_path`: Caminho relativo da imagem do logotipo copiada ou extraída para o projeto (ex.: `"figuras/logo_instituicao.png"`).
 - `preamble_text`: Preâmbulo institucional completo da Folha de Rosto (opcional).
-- `required_pre_textual`: Lista de elementos pré-textuais exigidos pela instituição além da NBR 14724 (ex.: `["ficha catalografica", "folha de aprovacao"]`).
+- `required_pre_textual`: Lista de elementos pré-textuais exigidos pela instituição além da NBR 14724 (ex.: `["ficha catalografica", "folha de aprovacao", "dedicatoria", "agradecimentos", "epigrafe", "lista de ilustracoes", "lista de tabelas", "lista de quadros", "lista de abreviaturas"]`). Quando presente, `scaffold_academic_project` injeta dinamicamente todos os blocos correspondentes na ordem oficial da ABNT NBR 14724 nos templates `typst`, `latex` e `markdown`, preservando estritamente as invariantes `NBR14724-R02` (sem numeração visível nas folhas pré-textuais) e `NBR6024-R01` (sem ponto após o número da seção).
 - `conclusion_label`: Rótulo adotado pela instituição para a seção final (`"Conclusão"` ou `"Considerações Finais"`).
 - `inferred_from_pdf`: Indica se os padrões institucionais foram extraídos automaticamente de um PDF modelo (`bool`, padrão: `false`).
 - `emphasis_style`: `"bold"` | `"italic"` para títulos nas referências (NBR 6023:2018).

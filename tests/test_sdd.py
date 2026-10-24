@@ -572,11 +572,21 @@ def test_comprehensive_spec_audit_institutional_rules_and_persistent_reports(tmp
         sample_pdf_path=str(sample_pdf),
     )
 
-    # 1. Primeira auditoria: faltam 'ficha catalografica' e 'folha de aprovacao' exigidas pelo PDF da faculdade
+    # 0. O scaffold dinâmico já injeta ficha catalográfica e folha de aprovação de imediato
+    audit_0 = audit_research_spec(str(proj_dir))
+    assert audit_0["institutional_compliance"]["is_compliant"] is True
+    assert audit_0["institutional_compliance"]["missing_pre_textual"] == []
+
+    # 1. Simula adição de requisito institucional ("epigrafe") ainda ausente no manuscrito
+    spec_file = proj_dir / "abnt.spec.json"
+    spec_data = json.loads(spec_file.read_text(encoding="utf-8"))
+    spec_data["profile"]["required_pre_textual"].append("epigrafe")
+    spec_file.write_text(json.dumps(spec_data, indent=2, ensure_ascii=False), encoding="utf-8")
+
     audit_1 = audit_research_spec(str(proj_dir))
     assert audit_1["submission_readiness"] == "NOT_READY"
     assert audit_1["institutional_compliance"]["is_compliant"] is False
-    assert "ficha catalografica" in audit_1["institutional_compliance"]["missing_pre_textual"]
+    assert "epigrafe" in audit_1["institutional_compliance"]["missing_pre_textual"]
     assert any(d["rule_id"] == "INST-PROFILE-PRETEXTUAL" and d["nature"] == "institutional" for d in audit_1["diagnostics"])
 
     # Verifica persistência dos relatórios em .abnt-mcp/
@@ -587,15 +597,13 @@ def test_comprehensive_spec_audit_institutional_rules_and_persistent_reports(tmp
     assert "Relatório de Conformidade Acadêmica (SDD)" in md_report.read_text(encoding="utf-8")
 
     # 2. Corrige as pendências institucionais e ajusta min_references=1 na spec
-    spec_file = proj_dir / "abnt.spec.json"
-    spec_data = json.loads(spec_file.read_text(encoding="utf-8"))
     spec_data["profile"]["min_references"] = 1
     spec_file.write_text(json.dumps(spec_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
     main_typ = proj_dir / "main.typ"
     main_typ.write_text(
         main_typ.read_text(encoding="utf-8")
-        + "\n// Elementos pré-textuais institucionais\n// Ficha Catalográfica e Folha de Aprovação\n",
+        + "\n// Epígrafe institucional adicionada\n",
         encoding="utf-8",
     )
 
@@ -603,6 +611,134 @@ def test_comprehensive_spec_audit_institutional_rules_and_persistent_reports(tmp
     assert audit_2["institutional_compliance"]["is_compliant"] is True
     assert audit_2["is_compliant"] is True
     assert audit_2["submission_readiness"] in {"READY", "READY_WITH_WARNINGS"}
+
+
+def test_scaffold_academic_project_renders_all_inferred_pre_textual_elements(tmp_path: Path) -> None:
+    """
+    Valida que scaffold_academic_project renderiza dinamicamente todos os 9 elementos pré-textuais
+    inferidos do PDF institucional (em Typst, LaTeX e Markdown), para a varredura ao atingir o Sumário/Introdução,
+    passa em check_structure e mantém NBR14724-R02 intacta (sem números de página visíveis nas pré-textuais).
+    """
+    import pypdf
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+
+    from abnt_mcp.parsers.pdf_reader import extract_institutional_pattern_from_pdf
+    from abnt_mcp.server import compile_tcc
+
+    def _create_pdf_with_pages(pdf_file: Path, pages_lines: list[list[str]]) -> None:
+        writer = pypdf.PdfWriter()
+        for lines in pages_lines:
+            page = pypdf.PageObject.create_blank_page(width=595, height=842)
+            font_dict = DictionaryObject({
+                NameObject("/Type"): NameObject("/Font"),
+                NameObject("/Subtype"): NameObject("/Type1"),
+                NameObject("/BaseFont"): NameObject("/Helvetica"),
+            })
+            resources = DictionaryObject({
+                NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font_dict)})
+            })
+            ops = ["BT", "/F1 12 Tf", "72 780 Td"]
+            for idx, ln in enumerate(lines):
+                escaped = ln.replace("(", "\\(").replace(")", "\\)")
+                if idx > 0:
+                    ops.append("0 -20 Td")
+                ops.append(f"({escaped}) Tj")
+            ops.append("ET")
+            page[NameObject("/Resources")] = resources
+            stream = DecodedStreamObject()
+            stream.set_data("\n".join(ops).encode("latin-1", errors="replace"))
+            page[NameObject("/Contents")] = writer._add_object(stream)
+            writer.add_page(page)
+        with open(pdf_file, "wb") as fp:
+            writer.write(fp)
+
+    # 1. Verifica que menções no corpo do texto (após Sumário / 1 INTRODUÇÃO) NÃO geram falso-positivo pré-textual
+    sample_stop = tmp_path / "modelo_stop_scan.pdf"
+    _create_pdf_with_pages(sample_stop, [
+        ["UNIVERSIDADE ESTADUAL", "JOAO SILVA", "TITULO DO TCC", "2025"],
+        ["Folha de Aprovacao", "Agradecimentos", "SUMARIO"],
+        ["1 INTRODUCAO", "Neste capitulo discutimos a Lista de Tabelas e a Epigrafe do autor."],
+    ])
+    stop_pattern = extract_institutional_pattern_from_pdf(sample_stop)
+    assert stop_pattern["required_pre_textual"] == ["folha de aprovacao", "agradecimentos"]
+    assert "lista de tabelas" not in stop_pattern["required_pre_textual"]
+    assert "epigrafe" not in stop_pattern["required_pre_textual"]
+
+    # 2. PDF completo com todos os 9 elementos pré-textuais do catálogo antes do Sumário
+    sample_full = tmp_path / "modelo_9_elementos.pdf"
+    _create_pdf_with_pages(sample_full, [
+        ["UNIVERSIDADE FEDERAL DO BRASIL", "FACULDade DE ENGENHARIA", "CURSO DE COMPUTACAO", "ANA SOUZA", "TCC COMPLETO", "2025"],
+        [
+            "Ficha Catalografica",
+            "Folha de Aprovacao",
+            "Dedicatoria",
+            "Agradecimentos",
+            "Epigrafe",
+            "Lista de Ilustracoes",
+            "Lista de Tabelas",
+            "Lista de Quadros",
+            "Lista de Abreviaturas e Siglas",
+            "SUMARIO",
+        ],
+    ])
+
+    expected_all_9 = [
+        "ficha catalografica",
+        "folha de aprovacao",
+        "dedicatoria",
+        "agradecimentos",
+        "epigrafe",
+        "lista de ilustracoes",
+        "lista de tabelas",
+        "lista de quadros",
+        "lista de abreviaturas",
+    ]
+
+    for fmt, ext in [("typst", "main.typ"), ("latex", "main.tex"), ("markdown", "main.md")]:
+        proj_dir = tmp_path / f"proj_{fmt}"
+        res = scaffold_academic_project(
+            project_path=str(proj_dir),
+            title="Sistema de Verificação Normativa ABNT",
+            author="Pedro Henrique Novais",
+            document_type="tcc",
+            format=fmt,
+            sample_pdf_path=str(sample_full),
+        )
+        assert res["success"] is True
+        assert res["inferred_institutional_profile"]["required_pre_textual"] == expected_all_9
+
+        content = (proj_dir / ext).read_text(encoding="utf-8")
+        lowered = content.lower()
+        assert "ficha catalogr" in lowered
+        assert "aprovado em:" in lowered
+        assert "dedico este trabalho" in lowered
+        assert "agradecimentos" in lowered
+        assert "epígrafe" in lowered or "epigrafe" in lowered
+        assert "lista de ilustrações" in lowered or "\\listoffigures" in lowered
+        assert "lista de tabelas" in lowered or "\\listoftables" in lowered
+        assert "lista de quadros" in lowered
+        assert "lista de abreviaturas" in lowered or "siglas" in lowered
+
+        # Verifica aprovação estrutural e de auditoria SDD imediata
+        struct = check_structure(str(proj_dir))
+        assert struct["is_valid"] is True, f"Falha estrutural em {fmt}: {struct}"
+        assert set(expected_all_9).issubset(set(struct["optional_elements_present"]))
+
+        audit = audit_research_spec(str(proj_dir))
+        assert audit["institutional_compliance"]["is_compliant"] is True, (
+            f"Inconformidade institucional pós-scaffold em {fmt}: {audit['institutional_compliance']}"
+        )
+
+    # 3. Compila o projeto Typst e garante que a paginação obedece estritamente à NBR14724-R02
+    from abnt_mcp.parsers.pdf_reader import audit_pdf_pagination
+
+    typst_proj = tmp_path / "proj_typst"
+    comp = compile_tcc(str(typst_proj), engine="typst")
+    if comp.get("success") is True and comp.get("output_pdf"):
+        pag_audit = audit_pdf_pagination(comp["output_pdf"])
+        assert pag_audit["is_compliant"] is True, (
+            f"Violação NBR14724-R02 nas folhas pré-textuais dinâmicas: {pag_audit}"
+        )
 
 
 def test_sdd_release_version_changelog_and_privacy_invariants() -> None:
