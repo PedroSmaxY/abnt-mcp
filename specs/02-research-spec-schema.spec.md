@@ -102,10 +102,12 @@ Define o esqueleto estrutural esperado do manuscrito:
 
 ## 4. Algoritmo de Auditoria SDD (`audit_project_against_spec`)
 
-1. **Verificação da Camada 1 (Perfil Normativo):**
+1. **Verificação da Camada 1 (Perfil Normativo, Institucional e Ilustrações):**
    - Executa `check_project_structure` respeitando `profile.standard` (`ABNT_14724` ou `ABNT_6022`).
    - Executa `audit_citations_and_references` e verifica se `total_references_in_bib >= profile.min_references`.
+   - Executa `audit_project_illustrations_and_tables` verificando chamada prévia, `Fonte:`, imagens existentes e distinção `Tabela` vs `Quadro`.
    - Executa `analyze_scientific_tone` e verifica se `score >= profile.min_scientific_tone_score`.
+   - Audita as regras institucionais de `NormativeProfile` (`required_pre_textual`, `has_cover_logo` / `cover_logo_path`, `conclusion_label`), emitindo diagnósticos com `nature="institutional"`.
 2. **Verificação da Camada 2 (Cobertura dos Objetivos Específicos):**
    - Segmenta o texto do documento em: (a) Introdução, (b) Desenvolvimento/Corpo e (c) Conclusão/Considerações Finais.
    - Para cada `SpecificObjective` (`OBJ-XX`):
@@ -114,5 +116,7 @@ Define o esqueleto estrutural esperado do manuscrito:
      - Classifica o status do objetivo como `"fulfilled"` (presente no corpo e respondido na conclusão), `"partial"` (presente apenas no corpo ou apenas citado superficialmente) ou `"missing"` (ausente).
 3. **Verificação da Camada 3 (Capítulos Planejados):**
    - Confere se cada capítulo listado em `planned_chapters` está presente no manuscrito.
-4. **Cálculo do `spec_compliance_score` (0 a 100):**
+4. **Cálculo do `spec_compliance_score` (0 a 100), `submission_readiness` e Persistência de Relatórios:**
    - Média ponderada entre: Conformidade Normativa Estrutural (35%), Cobertura de Objetivos Específicos (40%), Aderência aos Capítulos Planejados (15%) e Rigor/Referências (10%).
+   - Calcula `submission_readiness`: `"READY"`, `"READY_WITH_WARNINGS"` ou `"NOT_READY"` (jamais `"READY"` quando houver erro normativo/institucional ou objetivo específico não atendido).
+   - Persiste automaticamente `.abnt-mcp/last-audit.json` e `.abnt-mcp/relatorio-conformidade.md` no diretório do projeto.

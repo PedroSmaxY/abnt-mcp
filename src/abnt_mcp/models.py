@@ -300,16 +300,33 @@ class SpecAuditResult(BaseModel):
     document_type: str
     standard_applied: str
     is_compliant: bool
+    submission_readiness: Literal["READY", "READY_WITH_WARNINGS", "NOT_READY"] = "NOT_READY"
     spec_compliance_score: int = Field(..., ge=0, le=100)
     structure_score: int = Field(..., ge=0, le=100)
     objectives_fulfillment_rate: int = Field(..., ge=0, le=100)
     tone_score: int = Field(..., ge=0, le=100)
     references_count: int
     min_references_required: int
+    institutional_compliance: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Status de conformidade com as exigências específicas da universidade/periódico"
+    )
+    illustrations_summary: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Resumo da auditoria de figuras, tabelas e quadros"
+    )
     objectives_audit: list[ObjectiveAuditItem]
     chapters_audit: list[ChapterAuditItem]
     normative_issues: list[dict[str, str]]
+    diagnostics: list[DiagnosticItem] = Field(
+        default_factory=list,
+        description="Lista consolidada de diagnósticos (normativos, institucionais e heurísticos)"
+    )
     recommendations: list[str]
+    saved_report_paths: dict[str, str] = Field(
+        default_factory=dict,
+        description="Caminhos dos relatórios persistidos em .abnt-mcp/ (JSON e Markdown)"
+    )
 
 
 class ProjectScaffoldResult(BaseModel):
