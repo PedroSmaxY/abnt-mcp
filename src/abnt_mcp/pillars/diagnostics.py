@@ -66,10 +66,10 @@ OPTIONAL_ELEMENTS: list[str] = [
     "indice",
 ]
 
-# Padrões regex para detecção flexível nos fontes (.tex, .md, .typ)
+# Padrões regex para detecção flexível nos fontes (.tex, .md, .typ) e no texto final extraído de PDF
 ELEMENT_PATTERNS: dict[str, re.Pattern] = {
-    "capa": re.compile(r"(\\begin\{capa\}|\\imprimircapa|#imprimircapa|#page\(|title:|#set document\(title:)", re.IGNORECASE),
-    "folha de rosto": re.compile(r"(\\imprimirfolhaderosto|folha\s*de\s*rosto|titlepage)", re.IGNORECASE),
+    "capa": re.compile(r"(\\begin\{capa\}|\\imprimircapa|#imprimircapa|#page\(|title:|#set document\(title:|\buniversidade\b|\bfaculdade\b|\binstituto federal\b|\bcentro universit[áa]rio\b)", re.IGNORECASE),
+    "folha de rosto": re.compile(r"(\\imprimirfolhaderosto|folha\s*de\s*rosto|titlepage|trabalho\s*de\s*conclus[ãa]o|disserta[çc][ãa]o|tese\s*apresentad|orientador:)", re.IGNORECASE),
     "folha de aprovacao": re.compile(r"(folha\s*de\s*aprova[çc][ãa]o|banca\s*examinadora|termo\s*de\s*aprova[çc][ãa]o)", re.IGNORECASE),
     "dedicatoria": re.compile(r"(\\begin\{dedicatoria\}|#dedicatoria|\bdedicat[óo]ria\b)", re.IGNORECASE),
     "agradecimentos": re.compile(r"(\\begin\{agradecimentos\}|#agradecimentos|\bagradecimentos\b)", re.IGNORECASE),
@@ -80,8 +80,8 @@ ELEMENT_PATTERNS: dict[str, re.Pattern] = {
     "lista de tabelas": re.compile(r"(\\listoftables|lista\s*de\s*tabelas)", re.IGNORECASE),
     "lista de abreviaturas": re.compile(r"(\\listofsiglas|lista\s*de\s*(?:abreviaturas|siglas))", re.IGNORECASE),
     "sumario": re.compile(r"(\\tableofcontents|#outline\(|\b#?sum[áa]rio\b)", re.IGNORECASE),
-    "introducao": re.compile(r"(\\chapter\{.*introdu[çc][ãa]o.*\}|#chapter\[.*introdu[çc][ãa]o.*\]|#heading\(.*introdu[çc][ãa]o.*\)|#+\s*1?\s*introdu[çc][ãa]o)", re.IGNORECASE),
-    "desenvolvimento": re.compile(r"(\\chapter\{|#chapter\[|#heading|#+\s*[2-9])", re.IGNORECASE),
+    "introducao": re.compile(r"(\\chapter\{.*introdu[çc][ãa]o.*\}|#chapter\[.*introdu[çc][ãa]o.*\]|#heading\(.*introdu[çc][ãa]o.*\)|#+\s*1?\s*introdu[çc][ãa]o|\b1\s+introdu[çc][ãa]o\b)", re.IGNORECASE),
+    "desenvolvimento": re.compile(r"(\\chapter\{|#chapter\[|#heading|#+\s*[2-9]|\b[2-9]\s+[A-ZÁÉÍÓÚ])", re.IGNORECASE),
     "conclusao": re.compile(r"(conclus[ãa]o|considera[çc][õo]es\s*finais)", re.IGNORECASE),
     "referencias": re.compile(r"(\\bibliography|\\printbibliography|#bibliography|\b#?refer[êe]ncias\b)", re.IGNORECASE),
     "apendices": re.compile(r"(\\apendices|#apendice|\bap[êe]ndice\b)", re.IGNORECASE),
@@ -93,6 +93,7 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
     """
     Verifica a presença e a conformidade dos elementos pré-textuais, textuais
     e pós-textuais de acordo com a ABNT NBR 14724:2011 e NBR 6024:2012.
+    Suporta diretórios, arquivos-fonte (.tex, .md, .typ) e arquivos .pdf finais.
     """
     path = Path(project_path)
     if not path.exists():
@@ -103,21 +104,31 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
     file_count = 0
 
     if path.is_file():
-        files = [path]
+        if path.suffix.lower() == ".pdf":
+            from abnt_mcp.parsers.pdf_reader import extract_pdf_section
+            pdf_data = extract_pdf_section(path)
+            all_content.append(pdf_data["text"])
+            file_count = 1
+        else:
+            files = [path]
+            for f in files:
+                try:
+                    all_content.append(f.read_text(encoding="utf-8", errors="replace"))
+                    file_count += 1
+                except Exception:
+                    pass
     else:
         files = [
             f for f in path.rglob("*")
             if f.is_file() and f.suffix.lower() in {".tex", ".md", ".typ"}
             and not any(p.startswith(".") or p in {"build", "dist", ".venv"} for p in f.parts)
         ]
-
-    for f in files:
-        try:
-            txt = f.read_text(encoding="utf-8", errors="replace")
-            all_content.append(txt)
-            file_count += 1
-        except Exception:
-            continue
+        for f in files:
+            try:
+                all_content.append(f.read_text(encoding="utf-8", errors="replace"))
+                file_count += 1
+            except Exception:
+                continue
 
     combined_text = "\n\n".join(all_content)
 
