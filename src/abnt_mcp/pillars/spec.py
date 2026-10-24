@@ -122,6 +122,7 @@ def init_project_spec(
     institution: str | None = None,
     course: str | None = None,
     advisor: str | None = None,
+    city: str | None = None,
     min_references: int | None = None,
     planned_chapters: list[dict[str, Any]] | None = None,
     sample_pdf_path: str | Path | None = None,
@@ -203,6 +204,7 @@ def init_project_spec(
     effective_course = course or (inferred_profile.get("course") if inferred_profile else None)
     effective_department = inferred_profile.get("department") if inferred_profile else None
     effective_advisor = advisor or (inferred_profile.get("advisor") if inferred_profile else None)
+    effective_city = city or (inferred_profile.get("city") if inferred_profile else None)
     cover_header_lines = (
         list(inferred_profile.get("cover_header_lines", []))
         if inferred_profile
@@ -222,6 +224,7 @@ def init_project_spec(
         course=effective_course,
         department=effective_department,
         advisor=effective_advisor,
+        city=effective_city,
         cover_header_lines=cover_header_lines,
         has_cover_logo=has_cover_logo,
         cover_logo_path=effective_logo_path,
@@ -395,14 +398,14 @@ Registro meus sinceros agradecimentos à {inst}, ao(à) orientador(a) {advisor} 
             post_abstract_chunks.append("""// --- LISTA DE ABREVIATURAS E SIGLAS (NBR 14724) ---
 #align(center)[*LISTA DE ABREVIATURAS E SIGLAS*]
 #v(1cm)
-#table(
-  columns: (2.5cm, 1fr),
-  stroke: none,
-  align: (left, left),
-  [ABNT], [Associação Brasileira de Normas Técnicas],
-  [IBGE], [Instituto Brasileiro de Geografia e Estatística],
-  [MCP], [Model Context Protocol],
-  [SDD], [Spec-Driven Development],
+#grid(
+  columns: (auto, 1fr),
+  column-gutter: 1.2em,
+  row-gutter: 1em,
+  [*ABNT*], [-- Associação Brasileira de Normas Técnicas],
+  [*IBGE*], [-- Instituto Brasileiro de Geografia e Estatística],
+  [*MCP*], [-- Model Context Protocol],
+  [*SDD*], [-- Spec-Driven Development],
 )
 #pagebreak()
 """)
@@ -582,6 +585,7 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
     )
     advisor_line = f"Orientador(a): {spec.profile.advisor}" if spec.profile.advisor else "Orientador(a): Prof. Dr. Nome do Orientador"
     concl_title = spec.profile.conclusion_label.upper()
+    city_line = (spec.profile.city or "CIDADE - UF").upper()
     pre_resumo_block, post_abstract_block = _render_dynamic_pre_textual("typst", spec)
 
     return f"""// =========================================================================
@@ -600,7 +604,7 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
 
 #set par(
   justify: true,
-  leading: 0.8em,
+  leading: 0.75em,
   first-line-indent: (amount: 1.25cm, all: true)
 )
 #set heading(numbering: "1.1")
@@ -632,7 +636,7 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
   #text(size: 14pt, weight: "bold")[{spec.title.upper()}]
 
   #v(1fr)
-  *BRASIL* \\
+  *{city_line}* \\
   *{year}*
 ]
 #pagebreak()
@@ -659,7 +663,7 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
   ]
 
   #v(1fr)
-  *BRASIL* \\
+  *{city_line}* \\
   *{year}*
 ]
 #pagebreak()
@@ -779,7 +783,7 @@ def _render_scaffolded_latex(spec: ResearchSpec) -> str:
 
 {logo_cmd}\\titulo{{{spec.title}}}
 \\autor{{{spec.author or 'Autor do Trabalho'}}}
-\\local{{Brasil}}
+\\local{{{spec.profile.city or 'Cidade - UF'}}}
 \\data{{{year}}}
 \\orientador{{{advisor}}}
 \\instituicao{{{inst}}}
@@ -867,6 +871,9 @@ bibliography: referencias.bib
 
 # {spec.title}
 
+**{(spec.profile.city or 'CIDADE - UF').upper()}**  
+**{year}**
+
 <!-- FOLHA DE ROSTO -->
 {preamble}
 Orientador(a): {advisor}
@@ -924,6 +931,7 @@ def scaffold_project(
     institution: str | None = None,
     course: str | None = None,
     advisor: str | None = None,
+    city: str | None = None,
     research_problem: str | None = None,
     general_objective: str | None = None,
     specific_objectives: list[dict[str, Any]] | None = None,
@@ -988,6 +996,7 @@ def scaffold_project(
         institution=institution,
         course=course,
         advisor=advisor,
+        city=city,
         sample_pdf_path=sample_pdf_path,
         logo_path=logo_path,
     )

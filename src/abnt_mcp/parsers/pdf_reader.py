@@ -326,27 +326,52 @@ def extract_institutional_pattern_from_pdf(
 
     inst_keywords = (
         "universidade", "instituto", "faculdade", "centro universit", "centro de",
-        "escola", "departamento", "programa de p", "curso de", "bacharelado", "licenciatura",
+        "escola", "departamento", "coordena", "programa de", "curso de", "curso",
+        "bacharelado", "licenciatura", "campus", "unidade acad",
     )
-    for ln in cover_lines[:6]:
+    for ln in cover_lines[:8]:
         ln_lower = ln.lower()
-        if any(k in ln_lower for k in inst_keywords) or (ln.isupper() and len(ln.split()) >= 2):
+        if any(k in ln_lower for k in inst_keywords):
             cover_header_lines.append(ln)
             if institution is None and any(
-                k in ln_lower for k in ("universidade", "instituto", "faculdade", "centro universit")
+                k in ln_lower for k in ("universidade", "instituto", "faculdade", "centro universit", "escola")
             ):
                 institution = ln
             elif department is None and any(
-                k in ln_lower for k in ("centro", "departamento", "instituto", "faculdade", "escola")
+                k in ln_lower for k in ("centro", "departamento", "instituto", "faculdade", "escola", "campus")
             ):
                 department = ln
             elif course is None and any(
                 k in ln_lower for k in ("curso", "programa", "bacharelado", "licenciatura", "engenharia", "ciência", "direito", "administração", "sistemas")
             ):
                 course = ln
+        else:
+            # Se já começamos a capturar cabeçalho e encontramos uma linha não institucional (como autor ou título),
+            # interrompe a captura imediatamente para evitar contaminação da capa
+            if cover_header_lines:
+                break
 
     if not institution and cover_header_lines:
         institution = cover_header_lines[0]
+
+    # Extrai Cidade/Local das últimas linhas da Capa (geralmente antecedendo o ano de publicação)
+    city: str | None = None
+    for idx in range(len(cover_lines) - 1, max(-1, len(cover_lines) - 6), -1):
+        line = cover_lines[idx].strip()
+        if re.fullmatch(r"\b(19\d{2}|20\d{2})\b", line):
+            if idx > 0:
+                prev_line = cover_lines[idx - 1].strip()
+                if prev_line and len(prev_line.split()) <= 5 and not any(k in prev_line.lower() for k in inst_keywords):
+                    clean_city = re.sub(r"[\d,]+", "", prev_line).strip(" -/")
+                    if clean_city:
+                        city = clean_city
+                        break
+        m_city_year = re.search(r"([A-Za-zÀ-ÿ\s\-]+)[,\-\s]+(19\d{2}|20\d{2})\b", line)
+        if m_city_year:
+            candidate = m_city_year.group(1).strip(" -/,")
+            if candidate and len(candidate.split()) <= 5 and not any(k in candidate.lower() for k in inst_keywords):
+                city = candidate
+                break
 
     # 2. Folha de Rosto (Página 2, se existir)
     preamble_text: str | None = None
@@ -429,6 +454,7 @@ def extract_institutional_pattern_from_pdf(
         "department": department,
         "course": course,
         "advisor": advisor,
+        "city": city,
         "cover_header_lines": cover_header_lines,
         "has_cover_logo": has_cover_logo,
         "cover_logo_path": cover_logo_path,

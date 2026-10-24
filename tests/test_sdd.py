@@ -776,7 +776,7 @@ def test_typst_abnt_spacing_top_caption_and_reactive_outlines(tmp_path: Path) ->
     assert "first-line-indent: (amount: 1.25cm, all: true)" in main_typ
     assert "figure.caption(position: top)" in main_typ
     assert "pagebreak(weak: true)" in main_typ
-    assert "leading: 0.8em" in main_typ
+    assert "leading: 0.75em" in main_typ
 
     # Compilação limpa sem figuras nem tabelas: nenhuma lista vazia deve ser gerada
     comp_clean = compile_tcc(str(proj_dir), engine="typst")
@@ -853,6 +853,127 @@ def test_typst_abnt_spacing_top_caption_and_reactive_outlines(tmp_path: Path) ->
     from abnt_mcp.parsers.pdf_reader import audit_pdf_pagination
     pag_check = audit_pdf_pagination(comp_rich["pdf_generated"])
     assert pag_check["is_compliant"] is True
+
+
+def test_cover_parser_anti_contamination_and_dynamic_city(tmp_path: Path) -> None:
+    """
+    Garante:
+    1. Que o parser da Capa em pdf_reader NÃO capture nome de aluno nem título anterior em caixa alta como cabeçalho da faculdade;
+    2. Que a cidade/local seja extraída com precisão da base da capa e estampada no rodapé da Capa e Folha de Rosto;
+    3. Que a Lista de Siglas utilize #grid com travessão e diagramação fluida.
+    """
+    import pypdf
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+    from abnt_mcp.parsers.pdf_reader import extract_institutional_pattern_from_pdf
+    from abnt_mcp.server import compile_tcc
+
+    def _create_synthetic_university_sample(pdf_file: Path) -> None:
+        writer = pypdf.PdfWriter()
+        pages_content = [
+            # Página 1: Capa com cabeçalho institucional, autor antigo e título antigo em CAIXA ALTA, e cidade
+            [
+                "UNIVERSIDADE VEIGA DE ALMEIDA",
+                "CURSO DE CIENCIA DA COMPUTACAO",
+                "MATEUS SILVA SOUZA",
+                "CONCEITOS DE UX APLICADOS A INTERFACES WEB MODERNAS",
+                "RIO DE JANEIRO",
+                "2024",
+            ],
+            # Página 2: Folha de Rosto
+            [
+                "MATEUS SILVA SOUZA",
+                "Trabalho de Conclusão de Curso apresentado à Universidade Veiga de Almeida como requisito parcial para obtenção do grau de Bacharel.",
+                "Orientador: Prof. Dr. Roberto Almeida",
+                "RIO DE JANEIRO",
+                "2024",
+            ],
+            # Página 3: Lista de Abreviaturas e Sumário
+            [
+                "Lista de Abreviaturas e Siglas",
+                "SUMÁRIO",
+            ],
+            # Página 4: Introdução
+            [
+                "1 INTRODUÇÃO",
+                "Texto introdutório.",
+            ],
+        ]
+        for lines in pages_content:
+            page = pypdf.PageObject.create_blank_page(width=595, height=842)
+            font_dict = DictionaryObject({
+                NameObject("/Type"): NameObject("/Font"),
+                NameObject("/Subtype"): NameObject("/Type1"),
+                NameObject("/BaseFont"): NameObject("/Helvetica"),
+            })
+            resources = DictionaryObject({
+                NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font_dict)})
+            })
+            ops = ["BT", "/F1 12 Tf", "72 780 Td"]
+            for idx, ln in enumerate(lines):
+                escaped = ln.replace("(", "\\(").replace(")", "\\)")
+                if idx > 0:
+                    ops.append("0 -20 Td")
+                ops.append(f"({escaped}) Tj")
+            ops.append("ET")
+            page[NameObject("/Resources")] = resources
+            stream = DecodedStreamObject()
+            stream.set_data("\n".join(ops).encode("latin-1", errors="replace"))
+            page[NameObject("/Contents")] = writer._add_object(stream)
+            writer.add_page(page)
+        with open(pdf_file, "wb") as fp:
+            writer.write(fp)
+
+    sample_pdf = tmp_path / "modelo_veiga.pdf"
+    _create_synthetic_university_sample(sample_pdf)
+
+    # 1. Valida o parser institucional anti-contaminação
+    pattern = extract_institutional_pattern_from_pdf(sample_pdf)
+    assert pattern["institution"] == "UNIVERSIDADE VEIGA DE ALMEIDA"
+    assert pattern["course"] == "CURSO DE CIENCIA DA COMPUTACAO"
+    assert pattern["city"] == "RIO DE JANEIRO"
+    assert "MATEUS SILVA SOUZA" not in pattern["cover_header_lines"]
+    assert "CONCEITOS DE UX APLICADOS A INTERFACES WEB MODERNAS" not in pattern["cover_header_lines"]
+    assert pattern["cover_header_lines"] == [
+        "UNIVERSIDADE VEIGA DE ALMEIDA",
+        "CURSO DE CIENCIA DA COMPUTACAO",
+    ]
+
+    # 2. Scaffolding de novo projeto acadêmico a partir da amostra
+    proj_dir = tmp_path / "tcc_novo_aluno"
+    scaffold_academic_project(
+        project_path=str(proj_dir),
+        title="Arquitetura de Agentes Autônomos em SDD",
+        author="Ana Carolina Ramos",
+        document_type="tcc",
+        format="typst",
+        sample_pdf_path=str(sample_pdf),
+    )
+
+    main_typ = (proj_dir / "main.typ").read_text(encoding="utf-8")
+
+    # Garante que a cidade extraída foi inserida no rodapé no lugar de BRASIL
+    assert "RIO DE JANEIRO" in main_typ
+    assert "BRASIL" not in main_typ
+
+    # Garante que o autor antigo não contaminou o novo manuscrito
+    assert "MATEUS SILVA SOUZA" not in main_typ
+    assert "CONCEITOS DE UX" not in main_typ
+    assert "ANA CAROLINA RAMOS" in main_typ
+
+    # Garante que a lista de siglas usa #grid com travessão em vez de #table com vão rígido
+    assert "#grid(" in main_typ
+    assert "columns: (auto, 1fr)" in main_typ
+    assert "column-gutter: 1.2em" in main_typ
+    assert "[-- Associação Brasileira de Normas Técnicas]" in main_typ
+    assert "#table(columns: (2.5cm, 1fr)" not in main_typ
+
+    # 3. Compilação Typst e auditoria de paginação
+    comp = compile_tcc(str(proj_dir), engine="typst")
+    assert comp["success"] is True
+
+    from abnt_mcp.parsers.pdf_reader import audit_pdf_pagination
+    pag_res = audit_pdf_pagination(comp["pdf_generated"])
+    assert pag_res["is_compliant"] is True
 
 
 def test_sdd_release_version_changelog_and_privacy_invariants() -> None:

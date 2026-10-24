@@ -14,11 +14,11 @@ TYPST_TEMPLATE = r"""// ========================================================
   header: none,
 )
 
-// Tipografia: Arial ou Times New Roman, Tamanho 12pt, Espaçamento 1.5x ABNT (leading 0.8em), Recuo 1.25cm
+// Tipografia: Arial ou Times New Roman, Tamanho 12pt, Espaçamento 1.5x ABNT (leading 0.75em), Recuo 1.25cm
 #set text(font: "Times New Roman", size: 12pt, lang: "pt", region: "BR")
 #set par(
   justify: true,
-  leading: 0.8em,
+  leading: 0.75em,
   first-line-indent: (amount: 1.25cm, all: true)
 )
 #set heading(numbering: "1.1")
