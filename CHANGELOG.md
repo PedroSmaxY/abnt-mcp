@@ -10,9 +10,8 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 
 ## [Unreleased]
 
-### Adicionado
-- Padronização automatizada de Releases (`.github/workflows/release.yml` e `.github/release.yml`) com validação de paridade de versão, build `uv build`, teste de fumaça `uvx` e publicação via PyPI Trusted Publishing (OIDC).
-- Trava automatizada de integridade de versão, `CHANGELOG.md` e privacidade de metadados PEP 621 (`test_sdd_release_version_changelog_and_privacy_invariants` em `tests/test_sdd.py`).
+### Alterado
+- Refatoração do `CLAUDE.md` para atuar como apontador canônico direto para o `AGENTS.md` (Fonte Única da Verdade para governança SDD e regras normativas), mantendo apenas comandos rápidos de desenvolvimento e eliminando duplicação de regras.
 
 ---
 
