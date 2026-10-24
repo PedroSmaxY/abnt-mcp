@@ -17,11 +17,21 @@ Para solucionar esse problema de forma determinística e auditável por LLMs, o 
 
 O schema é validado pelo modelo Pydantic `ResearchSpec` em `src/abnt_mcp/models.py`:
 
-### Camada 1: Perfil Normativo (`NormativeProfile`)
-Define sob qual regime normativo o projeto deve ser validado:
+### Camada 1: Perfil Normativo e Institucional (`NormativeProfile`)
+Define sob qual regime normativo e padrão institucional (aprendido via PDF de exemplo da faculdade ou configurado manualmente) o projeto deve ser validado:
 - `document_type`: `"tcc"` | `"dissertacao"` | `"tese"` | `"artigo"` (padrão: `"tcc"`).
 - `standard`: `"ABNT_14724"` (monografias completas) | `"ABNT_6022"` (artigos científicos periódicos).
 - `institution`: Nome da universidade, faculdade ou periódico (opcional).
+- `course`: Curso de graduação ou programa de pós-graduação (opcional).
+- `department`: Centro, instituto, faculdade ou departamento (opcional).
+- `advisor`: Nome do(a) professor(a) orientador(a) (opcional).
+- `cover_header_lines`: Linhas superiores da capa na ordem institucional exata (ex.: `["UNIVERSIDADE...", "CENTRO...", "CURSO..."]`).
+- `has_cover_logo`: Indica se a capa institucional exige brasão/logotipo (`bool`, padrão: `false`).
+- `cover_logo_path`: Caminho relativo da imagem do logotipo copiada ou extraída para o projeto (ex.: `"figuras/logo_instituicao.png"`).
+- `preamble_text`: Preâmbulo institucional completo da Folha de Rosto (opcional).
+- `required_pre_textual`: Lista de elementos pré-textuais exigidos pela instituição além da NBR 14724 (ex.: `["ficha catalografica", "folha de aprovacao"]`).
+- `conclusion_label`: Rótulo adotado pela instituição para a seção final (`"Conclusão"` ou `"Considerações Finais"`).
+- `inferred_from_pdf`: Indica se os padrões institucionais foram extraídos automaticamente de um PDF modelo (`bool`, padrão: `false`).
 - `emphasis_style`: `"bold"` | `"italic"` para títulos nas referências (NBR 6023:2018).
 - `min_references`: Quantidade mínima de obras exigidas no arquivo `.bib` (padrão: `15` para TCC, `5` para artigos).
 - `min_scientific_tone_score`: Índice mínimo de rigor científico e impessoalidade exigido (`0` a `100`, padrão: `80`).
