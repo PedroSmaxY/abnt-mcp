@@ -33,6 +33,7 @@ from abnt_mcp.pillars.advisory import (
 )
 from abnt_mcp.pillars.spec import (
     init_project_spec,
+    scaffold_project,
     audit_project_against_spec,
     get_spec_template_resource,
 )
@@ -334,12 +335,16 @@ def init_research_spec(
     document_type: Literal["tcc", "dissertacao", "tese", "artigo"] = "tcc",
     author: str | None = None,
     institution: str | None = None,
+    course: str | None = None,
+    advisor: str | None = None,
     min_references: int | None = None,
     planned_chapters: list[dict[str, Any]] | None = None,
+    sample_pdf_path: str | None = None,
+    logo_path: str | None = None,
 ) -> dict[str, Any]:
     """
     Inicializa o manifesto de Especificação Científica (SDD) 'abnt.spec.json' e 'SPEC.md' no projeto:
-    - Camada 1: Perfil Normativo (ABNT NBR 14724 para monografias ou NBR 6022 para artigos).
+    - Camada 1: Perfil Normativo e Institucional (com aprendizado automático de PDF modelo da faculdade e cópia de logo).
     - Camada 2: Matriz Científica rastreável (Problema, Objetivo Geral e Objetivos Específicos OBJ-XX).
     - Camada 3: Capítulos planejados com metas mínimas de extensão e citações.
     """
@@ -353,9 +358,58 @@ def init_research_spec(
         document_type=document_type,
         author=author,
         institution=institution,
+        course=course,
+        advisor=advisor,
         min_references=min_references,
         planned_chapters=planned_chapters,
+        sample_pdf_path=sample_pdf_path,
+        logo_path=logo_path,
     )
+
+
+@mcp.tool()
+def scaffold_academic_project(
+    project_path: str,
+    title: str,
+    author: str,
+    document_type: Literal["tcc", "dissertacao", "tese", "artigo"] = "tcc",
+    format: Literal["typst", "latex", "markdown"] = "typst",
+    institution: str | None = None,
+    course: str | None = None,
+    advisor: str | None = None,
+    research_problem: str | None = None,
+    general_objective: str | None = None,
+    specific_objectives: list[dict[str, Any]] | None = None,
+    methodology_summary: str | None = None,
+    sample_pdf_path: str | None = None,
+    logo_path: str | None = None,
+    overwrite: bool = False,
+) -> dict[str, Any]:
+    """
+    Inicializa a árvore completa de diretórios e arquivos de um projeto acadêmico (TCC, Dissertação, Tese ou Artigo):
+    - Cria diretórios capitulos/, figuras/, tabelas/, anexos/, apendices/ e .abnt-mcp/.
+    - Se sample_pdf_path for fornecido, extrai automaticamente o padrão da universidade (cabeçalho da capa, preâmbulo, seções exigidas e brasão/logo da página 1).
+    - Se logo_path for fornecido, copia o arquivo de logotipo para figuras/logo_instituicao.* e referencia-o na capa.
+    - Gera abnt.spec.json, SPEC.md, referencias.bib e o arquivo principal (main.typ, main.tex ou main.md).
+    """
+    result = scaffold_project(
+        project_path=project_path,
+        title=title,
+        author=author,
+        document_type=document_type,
+        format=format,
+        institution=institution,
+        course=course,
+        advisor=advisor,
+        research_problem=research_problem,
+        general_objective=general_objective,
+        specific_objectives=specific_objectives,
+        methodology_summary=methodology_summary,
+        sample_pdf_path=sample_pdf_path,
+        logo_path=logo_path,
+        overwrite=overwrite,
+    )
+    return result.model_dump()
 
 
 @mcp.tool()

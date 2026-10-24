@@ -1,7 +1,7 @@
 """Modelos de dados Pydantic para validações e tipagem do ABNT Copilot MCP."""
 
 from __future__ import annotations
-from typing import Literal
+from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
@@ -166,10 +166,41 @@ class AcademicPaper(BaseModel):
 # ==============================================================================
 
 class NormativeProfile(BaseModel):
-    """Camada 1: Perfil normativo da especificação acadêmica."""
+    """Camada 1: Perfil normativo e institucional da especificação acadêmica."""
     document_type: Literal["tcc", "dissertacao", "tese", "artigo"] = "tcc"
     standard: Literal["ABNT_14724", "ABNT_6022"] = "ABNT_14724"
     institution: str | None = None
+    course: str | None = None
+    department: str | None = None
+    advisor: str | None = None
+    cover_header_lines: list[str] = Field(
+        default_factory=list,
+        description="Linhas superiores do cabeçalho da capa na ordem institucional"
+    )
+    has_cover_logo: bool = Field(
+        default=False,
+        description="Se a capa institucional utiliza logotipo/brasão"
+    )
+    cover_logo_path: str | None = Field(
+        default=None,
+        description="Caminho relativo da imagem da logo da instituição no projeto"
+    )
+    preamble_text: str | None = Field(
+        default=None,
+        description="Preâmbulo institucional completo da Folha de Rosto"
+    )
+    required_pre_textual: list[str] = Field(
+        default_factory=list,
+        description="Elementos pré-textuais adicionais exigidos pela instituição"
+    )
+    conclusion_label: str = Field(
+        default="Conclusão",
+        description="Rótulo adotado para a seção conclusiva ('Conclusão' ou 'Considerações Finais')"
+    )
+    inferred_from_pdf: bool = Field(
+        default=False,
+        description="Se os padrões institucionais foram extraídos automaticamente de um PDF modelo"
+    )
     emphasis_style: Literal["bold", "italic"] = "bold"
     min_references: int = Field(default=15, ge=1)
     min_scientific_tone_score: int = Field(default=80, ge=0, le=100)
@@ -247,3 +278,18 @@ class SpecAuditResult(BaseModel):
     chapters_audit: list[ChapterAuditItem]
     normative_issues: list[dict[str, str]]
     recommendations: list[str]
+
+
+class ProjectScaffoldResult(BaseModel):
+    """Resultado do scaffolding estrutural de um projeto acadêmico SDD."""
+    success: bool
+    project_path: str
+    format: Literal["typst", "latex", "markdown"]
+    main_file: str
+    bib_file: str
+    spec_json_path: str
+    spec_md_path: str
+    cover_logo_path: str | None = None
+    created_files: list[str] = Field(default_factory=list)
+    inferred_institutional_profile: dict[str, Any] | None = None
+    message: str
