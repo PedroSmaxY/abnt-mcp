@@ -14,16 +14,28 @@ TYPST_TEMPLATE = r"""// ========================================================
   header: none,
 )
 
-// Tipografia: Arial ou Times New Roman, Tamanho 12pt, Espaçamento 1.5x, Recuo 1.25cm
+// Tipografia: Arial ou Times New Roman, Tamanho 12pt, Espaçamento 1.5x ABNT (leading 0.8em), Recuo 1.25cm
 #set text(font: "Times New Roman", size: 12pt, lang: "pt", region: "BR")
-#set par(justify: true, leading: 1.5em, first-line-indent: 1.25cm)
+#set par(
+  justify: true,
+  leading: 0.8em,
+  first-line-indent: (amount: 1.25cm, all: true)
+)
+#set heading(numbering: "1.1")
+#show figure: set figure.caption(position: top)
 
-// Formatação de Títulos (NBR 6024)
+// Formatação de Títulos e Quebra Obrigatória de Capítulos Primários (NBR 14724 / NBR 6024)
 #show heading.where(level: 1): it => {
   pagebreak(weak: true)
+  v(1.5cm)
+  it
+  v(1.5cm)
+}
+
+#show heading.where(level: 2): it => {
   v(1cm)
-  text(weight: "bold")[#it.body]
-  v(1cm)
+  it
+  v(0.8cm)
 }
 
 // -----------------------------------------------------------------------------
@@ -84,6 +96,38 @@ Este trabalho sintetiza o desenvolvimento de ferramentas baseadas no Model Conte
 *Palavras-chave:* Normas ABNT; Model Context Protocol; Escrita Científica; Automação Acadêmica.
 
 #pagebreak()
+
+// --- LISTAS PRÉ-TEXTUAIS REATIVAS (NBR 14724) ---
+// Materializam-se automaticamente apenas quando houver figuras, tabelas ou quadros no documento.
+#context {
+  let figs = query(figure.where(kind: image))
+  if figs.len() > 0 {
+    align(center)[#text(weight: "bold")[LISTA DE ILUSTRAÇÕES]]
+    v(1cm)
+    outline(title: none, target: figure.where(kind: image))
+    pagebreak()
+  }
+}
+
+#context {
+  let tabs = query(figure.where(kind: table))
+  if tabs.len() > 0 {
+    align(center)[#text(weight: "bold")[LISTA DE TABELAS]]
+    v(1cm)
+    outline(title: none, target: figure.where(kind: table))
+    pagebreak()
+  }
+}
+
+#context {
+  let quadros = query(figure.where(kind: "quadro"))
+  if quadros.len() > 0 {
+    align(center)[#text(weight: "bold")[LISTA DE QUADROS]]
+    v(1cm)
+    outline(title: none, target: figure.where(kind: "quadro"))
+    pagebreak()
+  }
+}
 
 // Sumário (Obrigatório - NBR 6027)
 #outline(title: [SUMÁRIO], indent: auto)

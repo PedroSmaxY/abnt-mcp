@@ -174,6 +174,7 @@ def test_format_table_and_quadro():
     assert res_tab["is_table"] is True
     assert "Tabela 1 – Distribuição Amostral" in res_tab["snippets"]["markdown"]
     assert "\\toprule" in res_tab["snippets"]["latex"]
+    assert 'kind: "quadro"' not in res_tab["snippets"]["typst"]
 
     # Quadro (ABNT: bordas fechadas)
     res_quad = format_table_abnt(
@@ -187,3 +188,5 @@ def test_format_table_and_quadro():
     assert res_quad["is_table"] is False
     assert "Quadro 1 – Comparativo Conceitual" in res_quad["snippets"]["markdown"]
     assert "\\hline" in res_quad["snippets"]["latex"]
+    assert 'kind: "quadro"' in res_quad["snippets"]["typst"]
+    assert "supplement: [Quadro]" in res_quad["snippets"]["typst"]

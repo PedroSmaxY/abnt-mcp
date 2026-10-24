@@ -11,6 +11,15 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 ## [Unreleased]
 
 ### Adicionado
+- **Listas Pré-Textuais Reativas no Typst (`src/abnt_mcp/pillars/spec.py` e `src/abnt_mcp/templates/typst.py`):**
+  - Implementação de blocos reativos com introspecção `#context query(figure.where(...))` para Lista de Ilustrações (`kind: image`), Lista de Tabelas (`kind: table`) e Lista de Quadros (`kind: "quadro"`). As listas materializam-se automaticamente apenas se o documento contiver itens correspondentes, com pontilhado e número de página exato, prevenindo páginas em branco ou listas vazias com títulos órfãos (ABNT NBR 14724 itens 5.6 e 5.7).
+- **Invariantes de Diagramação ABNT no Typst (`spec.py` e `typst.py`):**
+  - Quebra obrigatória de página em seções primárias via `#show heading.where(level: 1): it => { pagebreak(weak: true); v(1.5cm); it; v(1.5cm) }` (NBR 14724 item 5.2.1), impedindo que capítulos como Conclusão sejam colados no final do capítulo anterior.
+  - Posicionamento de identificação (legenda) de figuras, tabelas e quadros sempre no topo via `#show figure: set figure.caption(position: top)` (NBR 14724 item 5.8 e Normas Tabulares do IBGE de 1993).
+  - Recuo de primeiro parágrafo ABNT de 1,25 cm forçado em todos os parágrafos inclusive após headings com `#set par(first-line-indent: (amount: 1.25cm, all: true))`.
+  - Calibração do entrelinhas 1,5 real ABNT para Typst com `#set par(leading: 0.8em)`.
+- **Suporte Nativo a Quadros no Typst (`src/abnt_mcp/pillars/writing.py`):**
+  - O utilitário `format_table_abnt` agora emite `kind: "quadro"` e `supplement: [Quadro]` no snippet Typst quando `category == "quadro"`, diferenciando a numeração e a legenda de Quadros em relação a Tabelas.
 - **Injeção Dinâmica de Elementos Pré-Textuais Institucionais no Scaffold (`src/abnt_mcp/pillars/spec.py`):**
   - Implementação do gerador `_render_dynamic_pre_textual` que injeta automaticamente os 9 elementos pré-textuais do catálogo (`ficha catalografica`, `folha de aprovacao`, `dedicatoria`, `agradecimentos`, `epigrafe`, `lista de ilustracoes`, `lista de tabelas`, `lista de quadros` e `lista de abreviaturas`) nos esqueletos `typst`, `latex` e `markdown` gerados por `scaffold_academic_project`, respeitando a ordem canônica da ABNT NBR 14724:2011 e blindando contra numeração de página visível nas folhas pré-textuais (`NBR14724-R02`).
 - **Paridade de Detecção Pré-Textual (`src/abnt_mcp/pillars/diagnostics.py`):**

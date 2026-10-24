@@ -734,11 +734,125 @@ def test_scaffold_academic_project_renders_all_inferred_pre_textual_elements(tmp
 
     typst_proj = tmp_path / "proj_typst"
     comp = compile_tcc(str(typst_proj), engine="typst")
-    if comp.get("success") is True and comp.get("output_pdf"):
-        pag_audit = audit_pdf_pagination(comp["output_pdf"])
+    if comp.get("success") is True and comp.get("pdf_generated"):
+        pag_audit = audit_pdf_pagination(comp["pdf_generated"])
         assert pag_audit["is_compliant"] is True, (
             f"Violação NBR14724-R02 nas folhas pré-textuais dinâmicas: {pag_audit}"
         )
+
+
+def test_typst_abnt_spacing_top_caption_and_reactive_outlines(tmp_path: Path) -> None:
+    """
+    Garante as regras de diagramação ABNT no Typst:
+    1. Recuo de 1,25 cm em todos os parágrafos (first-line-indent com all: true);
+    2. Identificação de figuras e tabelas no topo (caption position top);
+    3. Quebra obrigatória de seções primárias em folha distinta (heading level 1 pagebreak weak);
+    4. Listas pré-textuais reativas: só se materializam no PDF se houver figuras/tabelas/quadros no documento.
+    """
+    import io
+    import pypdf
+    from abnt_mcp.server import compile_tcc
+    from abnt_mcp.templates.typst import get_typst_template
+
+    # 1. Verifica paridade no template canônico exportado por abnt://template/typst
+    canonical_tpl = get_typst_template()
+    assert "first-line-indent: (amount: 1.25cm, all: true)" in canonical_tpl
+    assert "figure.caption(position: top)" in canonical_tpl
+    assert "pagebreak(weak: true)" in canonical_tpl
+    assert "let tabs = query(figure.where(kind: table))" in canonical_tpl
+
+    # 2. Scaffolding de um projeto Typst padrão (sem ilustrações/tabelas)
+    proj_dir = tmp_path / "typst_reativo"
+    scaffold_academic_project(
+        project_path=str(proj_dir),
+        title="Estudo sobre Tipografia e Diagramação ABNT",
+        author="Pedro Henrique Novais",
+        document_type="tcc",
+        format="typst",
+    )
+
+    main_typ_path = proj_dir / "main.typ"
+    main_typ = main_typ_path.read_text(encoding="utf-8")
+    assert "first-line-indent: (amount: 1.25cm, all: true)" in main_typ
+    assert "figure.caption(position: top)" in main_typ
+    assert "pagebreak(weak: true)" in main_typ
+    assert "leading: 0.8em" in main_typ
+
+    # Compilação limpa sem figuras nem tabelas: nenhuma lista vazia deve ser gerada
+    comp_clean = compile_tcc(str(proj_dir), engine="typst")
+    assert comp_clean["success"] is True
+    pdf_clean_bytes = Path(comp_clean["pdf_generated"]).read_bytes()
+    reader_clean = pypdf.PdfReader(io.BytesIO(pdf_clean_bytes))
+    clean_text = "".join(p.extract_text() for p in reader_clean.pages)
+    assert "LISTA DE ILUSTRAÇÕES" not in clean_text
+    assert "LISTA DE TABELAS" not in clean_text
+    assert "LISTA DE QUADROS" not in clean_text
+
+    # 3. Adiciona uma Tabela e um Quadro ao manuscrito no corpo do texto
+    table_and_quadro_snippet = """
+#figure(
+  table(
+    columns: 2,
+    stroke: (x, y) => if x == 0 or x == 2 { none } else { 0.5pt },
+    [Parâmetro], [Valor],
+    [Amostra], [100],
+    [Acurácia], [98.5%]
+  ),
+  caption: [Resultados Quantitativos da Amostra],
+) <tab1>
+#align(center)[#text(size: 10pt)[Fonte: Dados da pesquisa (2026).]]
+
+#figure(
+  table(
+    columns: 2,
+    stroke: 0.5pt,
+    [Dimensão], [Definição Conceitual],
+    [SDD], [Spec-Driven Development],
+    [MCP], [Model Context Protocol]
+  ),
+  caption: [Matriz Conceitual Comparativa],
+  kind: "quadro",
+  supplement: [Quadro],
+) <qua1>
+#align(center)[#text(size: 10pt)[Fonte: Elaborado pelo autor (2026).]]
+"""
+    updated_main = main_typ.replace(
+        "= RESULTADOS E DISCUSSÃO",
+        "= RESULTADOS E DISCUSSÃO\n" + table_and_quadro_snippet
+    )
+    main_typ_path.write_text(updated_main, encoding="utf-8")
+
+    comp_rich = compile_tcc(str(proj_dir), engine="typst")
+    assert comp_rich["success"] is True
+    pdf_rich_bytes = Path(comp_rich["pdf_generated"]).read_bytes()
+    reader_rich = pypdf.PdfReader(io.BytesIO(pdf_rich_bytes))
+
+    # As listas de tabelas e quadros agora se materializam reativamente!
+    rich_text = "".join(p.extract_text() for p in reader_rich.pages)
+    assert "LISTA DE TABELAS" in rich_text
+    assert "LISTA DE QUADROS" in rich_text
+    assert "Resultados Quantitativos da Amostra" in rich_text
+    assert "Matriz Conceitual Comparativa" in rich_text
+    # Lista de ilustrações permanece omitida porque não há imagens
+    assert "LISTA DE ILUSTRAÇÕES" not in rich_text
+
+    # Verifica que capítulos primários estão em páginas diferentes (pagebreak weak)
+    pages_headings = {}
+    for idx, page in enumerate(reader_rich.pages):
+        txt = page.extract_text()
+        for heading in ["1 INTRODUÇÃO", "2 FUNDAMENTAÇÃO TEÓRICA", "3 METODOLOGIA", "4 RESULTADOS E DISCUSSÃO", "5 CONCLUSÃO"]:
+            if heading in txt:
+                pages_headings[heading] = idx + 1
+
+    assert pages_headings["1 INTRODUÇÃO"] < pages_headings["2 FUNDAMENTAÇÃO TEÓRICA"]
+    assert pages_headings["2 FUNDAMENTAÇÃO TEÓRICA"] < pages_headings["3 METODOLOGIA"]
+    assert pages_headings["3 METODOLOGIA"] < pages_headings["4 RESULTADOS E DISCUSSÃO"]
+    assert pages_headings["4 RESULTADOS E DISCUSSÃO"] < pages_headings["5 CONCLUSÃO"]
+
+    # Paginação ABNT permanece 100% em conformidade com NBR 14724 item 5.3
+    from abnt_mcp.parsers.pdf_reader import audit_pdf_pagination
+    pag_check = audit_pdf_pagination(comp_rich["pdf_generated"])
+    assert pag_check["is_compliant"] is True
 
 
 def test_sdd_release_version_changelog_and_privacy_invariants() -> None:

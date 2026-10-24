@@ -120,3 +120,20 @@ Define o esqueleto estrutural esperado do manuscrito:
    - Média ponderada entre: Conformidade Normativa Estrutural (35%), Cobertura de Objetivos Específicos (40%), Aderência aos Capítulos Planejados (15%) e Rigor/Referências (10%).
    - Calcula `submission_readiness`: `"READY"`, `"READY_WITH_WARNINGS"` ou `"NOT_READY"` (jamais `"READY"` quando houver erro normativo/institucional ou objetivo específico não atendido).
    - Persiste automaticamente `.abnt-mcp/last-audit.json` e `.abnt-mcp/relatorio-conformidade.md` no diretório do projeto.
+
+---
+
+## 5. Invariantes de Diagramação e Reatividade do Motor Typst
+
+Para geração de projetos e compilação em formato Typst (`scaffold_academic_project` e `abnt://template/typst`), os templates devem observar estritamente:
+
+1. **Quebra de Página em Capítulos Primários (`NBR14724` item 5.2.1):**
+   - Títulos primários (`level: 1`) iniciam obrigatoriamente em folha distinta via `#show heading.where(level: 1): it => { pagebreak(weak: true); ... }`.
+2. **Posição de Legendas (`NBR14724` item 5.8 / `IBGE 1993`):**
+   - Identificação de ilustrações, tabelas e quadros posicionada no topo via `#show figure: set figure.caption(position: top)`. A fonte permanece indicada na base.
+3. **Recuo de Parágrafos ABNT:**
+   - Recuo obrigatório de 1,25 cm em todos os parágrafos de texto, inclusive no primeiro parágrafo após cada título, via `#set par(..., first-line-indent: (amount: 1.25cm, all: true))`.
+4. **Espaçamento Entrelinhas Calibrado:**
+   - Entrelinhas 1,5 real ABNT configurado no Typst como `#set par(leading: 0.8em)` (evitando valores literais `leading: 1.5em` que quadruplicam o entrelinhas tipográfico).
+5. **Listas Pré-Textuais Reativas por Introspecção (`context query(...)`):**
+   - As listas de Ilustrações (`figure.where(kind: image)`), Tabelas (`figure.where(kind: table)`) e Quadros (`figure.where(kind: "quadro")`) são geradas de forma condicional/reativa: só aparecem no PDF se houver itens presentes no texto, evitando páginas em branco ou listas vazias com títulos órfãos.
