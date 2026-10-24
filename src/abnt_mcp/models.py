@@ -205,6 +205,10 @@ class NormativeProfile(BaseModel):
     course: str | None = None
     department: str | None = None
     advisor: str | None = None
+    city: str | None = Field(
+        default=None,
+        description="Cidade/Local da instituição exibida no rodapé da Capa e Folha de Rosto"
+    )
     cover_header_lines: list[str] = Field(
         default_factory=list,
         description="Linhas superiores do cabeçalho da capa na ordem institucional"
