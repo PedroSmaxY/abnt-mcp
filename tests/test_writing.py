@@ -143,3 +143,47 @@ def test_reformulate_to_impersonal():
     assert "analisou-se" in res["reformulated"].lower()
     assert "realizou-se" in res["reformulated"].lower()
     assert res["changes_count"] >= 2
+
+
+def test_format_figure():
+    from abnt_mcp.pillars.writing import format_figure_abnt
+    res = format_figure_abnt(
+        image_path="images/diagrama.png",
+        caption="Arquitetura do Modelo",
+        source="Dados da pesquisa (2026).",
+        figure_number=1,
+    )
+    assert res["standard"] == "ABNT NBR 14724:2011"
+    assert "Figura 1 – Arquitetura do Modelo" in res["snippets"]["markdown"]
+    assert "\\caption{Arquitetura do Modelo}" in res["snippets"]["latex"]
+    assert "images/diagrama.png" in res["snippets"]["latex"]
+    assert "Fonte: Dados da pesquisa (2026)." in res["snippets"]["markdown"]
+
+
+def test_format_table_and_quadro():
+    from abnt_mcp.pillars.writing import format_table_abnt
+    # Tabela (IBGE: laterais abertas)
+    res_tab = format_table_abnt(
+        title="Distribuição Amostral",
+        headers=["Categoria", "Quantidade"],
+        rows=[["A", "10"], ["B", "20"]],
+        source="IBGE (2022).",
+        table_number=1,
+        category="tabela",
+    )
+    assert res_tab["is_table"] is True
+    assert "Tabela 1 – Distribuição Amostral" in res_tab["snippets"]["markdown"]
+    assert "\\toprule" in res_tab["snippets"]["latex"]
+
+    # Quadro (ABNT: bordas fechadas)
+    res_quad = format_table_abnt(
+        title="Comparativo Conceitual",
+        headers=["Conceito", "Definição"],
+        rows=[["MCP", "Protocolo"], ["LLM", "Modelo"]],
+        source="Autor (2026).",
+        table_number=1,
+        category="quadro",
+    )
+    assert res_quad["is_table"] is False
+    assert "Quadro 1 – Comparativo Conceitual" in res_quad["snippets"]["markdown"]
+    assert "\\hline" in res_quad["snippets"]["latex"]

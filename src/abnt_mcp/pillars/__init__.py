@@ -10,6 +10,8 @@ from abnt_mcp.pillars.writing import (
     format_reference_abnt,
     generate_abnt_resumo,
     reformulate_to_impersonal,
+    format_figure_abnt,
+    format_table_abnt,
 )
 from abnt_mcp.pillars.compiler import (
     compile_project,
@@ -31,6 +33,8 @@ __all__ = [
     "format_reference_abnt",
     "generate_abnt_resumo",
     "reformulate_to_impersonal",
+    "format_figure_abnt",
+    "format_table_abnt",
     "compile_project",
     "lint_latex_source",
     "parse_latex_log_for_errors",

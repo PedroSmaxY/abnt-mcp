@@ -349,3 +349,161 @@ def reformulate_to_impersonal(text: str) -> dict[str, Any]:
         "changes_count": len(changes_made),
         "changes": changes_made,
     }
+
+
+def format_figure_abnt(
+    image_path: str,
+    caption: str,
+    source: str = "Elaborado pelo autor (2026).",
+    figure_number: int | str = 1,
+    target_format: str = "markdown",
+) -> dict[str, Any]:
+    """
+    Formata uma ilustração/figura conforme a ABNT NBR 14724:
+    - Identificação no topo: 'Figura X – Título' (tamanho 10).
+    - Ilustração centralizada.
+    - Indicação da fonte no rodapé: 'Fonte: ...' (tamanho 10).
+    - Chamada obrigatória no texto precedente ('conforme a Figura X').
+    """
+    label_fig = f"Figura {figure_number} – {caption.strip()}"
+    source_fig = f"Fonte: {source.strip()}"
+    text_call = f"Conforme ilustra a Figura {figure_number}, ..."
+
+    # Snippet em Markdown
+    md_code = (
+        f"{label_fig}\n\n"
+        f"![{caption}]({image_path})\n\n"
+        f"<small>{source_fig}</small>"
+    )
+
+    # Snippet em LaTeX (abnTeX2)
+    clean_path = image_path.replace("\\", "/")
+    latex_code = (
+        f"\\begin{{figure}}[htbp]\n"
+        f"    \\centering\n"
+        f"    \\caption{{{caption.strip()}}}\n"
+        f"    \\includegraphics[width=0.8\\textwidth]{{{clean_path}}}\n"
+        f"    \\fonte{{{source.strip()}}}\n"
+        f"    \\label{{fig:figura{figure_number}}}\n"
+        f"\\end{{figure}}"
+    )
+
+    # Snippet em Typst
+    typst_code = (
+        f"#figure(\n"
+        f'  image("{clean_path}", width: 80%),\n'
+        f"  caption: [{caption.strip()}],\n"
+        f")\n"
+        f"#align(center)[#text(size: 10pt)[{source_fig}]]"
+    )
+
+    return {
+        "standard": "ABNT NBR 14724:2011",
+        "figure_number": figure_number,
+        "caption": caption.strip(),
+        "source": source.strip(),
+        "text_call_example": text_call,
+        "rules": [
+            "Identificação no topo com tipo, número de ordem e título.",
+            "Indicação da fonte obrigatória no rodapé, mesmo quando elaborada pelo próprio autor.",
+            "Tamanho da fonte menor (10 pt) e espaçamento simples para legenda e fonte.",
+            "Chamada obrigatória no texto anterior ou concomitante à figura."
+        ],
+        "snippets": {
+            "markdown": md_code,
+            "latex": latex_code,
+            "typst": typst_code,
+        }
+    }
+
+
+def format_table_abnt(
+    title: str,
+    headers: list[str],
+    rows: list[list[str]],
+    source: str = "Elaborado pelo autor (2026).",
+    table_number: int | str = 1,
+    category: str = "tabela",
+) -> dict[str, Any]:
+    """
+    Formata dados no padrão ABNT / Normas Tabulares do IBGE (1993):
+    - Tabela (dados numéricos/estatísticos): laterais ABERTAS, sem linhas verticais externas.
+    - Quadro (dados qualitativos/textuais): bordas laterais FECHADAS (moldura completa).
+    """
+    is_table = category.lower() in {"tabela", "table"}
+    type_name = "Tabela" if is_table else "Quadro"
+    top_label = f"{type_name} {table_number} – {title.strip()}"
+    source_label = f"Fonte: {source.strip()}"
+    text_call = f"Como indicado na {type_name} {table_number}, ..."
+
+    # 1. Markdown
+    header_line = "| " + " | ".join(headers) + " |"
+    sep_line = "| " + " | ".join(["---"] * len(headers)) + " |"
+    rows_lines = ["| " + " | ".join(r) + " |" for r in rows]
+    md_code = f"**{top_label}**\n\n" + "\n".join([header_line, sep_line] + rows_lines) + f"\n\n<small>{source_label}</small>"
+
+    # 2. LaTeX
+    col_spec = "c" * len(headers)
+    if is_table:
+        # Padrão IBGE: booktabs, sem barras verticais nas bordas
+        latex_tabular = (
+            f"\\begin{{tabular}}{{{col_spec}}}\n"
+            f"    \\toprule\n"
+            f"    " + " & ".join(headers) + " \\\\\n"
+            f"    \\midrule\n"
+            + "\n".join(f"    {' & '.join(r)} \\\\" for r in rows) + "\n"
+            f"    \\bottomrule\n"
+            f"\\end{{tabular}}"
+        )
+    else:
+        # Quadro: bordas fechadas com |
+        col_spec_closed = "|" + "|".join(["c"] * len(headers)) + "|"
+        latex_tabular = (
+            f"\\begin{{tabular}}{{{col_spec_closed}}}\n"
+            f"    \\hline\n"
+            f"    " + " & ".join(headers) + " \\\\\n"
+            f"    \\hline\n"
+            + "\n".join(f"    {' & '.join(r)} \\\\ \\hline" for r in rows) + "\n"
+            f"\\end{{tabular}}"
+        )
+
+    latex_code = (
+        f"\\begin{{{category.lower()}}}[htbp]\n"
+        f"    \\centering\n"
+        f"    \\caption{{{title.strip()}}}\n"
+        f"    {latex_tabular}\n"
+        f"    \\fonte{{{source.strip()}}}\n"
+        f"    \\label{{{category.lower()}:{table_number}}}\n"
+        f"\\end{{{category.lower()}}}"
+    )
+
+    # 3. Typst
+    typst_code = (
+        f"#figure(\n"
+        f"  table(\n"
+        f"    columns: {len(headers)},\n"
+        f"    stroke: {'(x, y) => if x == 0 or x == ' + str(len(headers)) + ' { none } else { 0.5pt }' if is_table else '0.5pt'},\n"
+        f"    " + ", ".join(f"[{h}]" for h in headers) + ",\n"
+        + ",\n".join(f"    {', '.join(f'[{cell}]' for cell in r)}" for r in rows) + "\n"
+        f"  ),\n"
+        f"  caption: [{title.strip()}],\n"
+        f")\n"
+        f"#align(center)[#text(size: 10pt)[{source_label}]]"
+    )
+
+    return {
+        "standard": "Normas do IBGE (1993) / ABNT NBR 14724:2011",
+        "category": category,
+        "is_table": is_table,
+        "distinction_rule": (
+            "Tabelas contêm dados numéricos com bordas laterais abertas (IBGE). "
+            "Quadros contêm dados textuais/qualitativos com bordas fechadas em moldura."
+        ),
+        "text_call_example": text_call,
+        "snippets": {
+            "markdown": md_code,
+            "latex": latex_code,
+            "typst": typst_code,
+        }
+    }
+

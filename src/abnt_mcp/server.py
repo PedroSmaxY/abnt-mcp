@@ -21,6 +21,8 @@ from abnt_mcp.pillars.writing import (
     format_reference_abnt,
     generate_abnt_resumo,
     reformulate_to_impersonal,
+    format_figure_abnt,
+    format_table_abnt,
 )
 from abnt_mcp.pillars.compiler import compile_project
 from abnt_mcp.pillars.advisory import (
@@ -263,6 +265,55 @@ def generate_academic_resumo(
         conclusion=conclusion,
         keywords=keywords,
         language=language,
+    )
+
+
+@mcp.tool()
+def format_figure(
+    image_path: str,
+    caption: str,
+    source: str = "Elaborado pelo autor (2026).",
+    figure_number: int | str = 1,
+    target_format: Literal["markdown", "latex", "typst"] = "markdown",
+) -> dict[str, Any]:
+    """
+    Formata uma figura/imagem no padrão da ABNT NBR 14724:
+    - Identificação no topo ('Figura X – Título').
+    - Imagem centralizada com caminho no computador.
+    - Indicação da fonte obrigatória no rodapé.
+    - Fornece exemplo da chamada obrigatória no texto e snippets prontos em Markdown, LaTeX e Typst.
+    """
+    return format_figure_abnt(
+        image_path=image_path,
+        caption=caption,
+        source=source,
+        figure_number=figure_number,
+        target_format=target_format,
+    )
+
+
+@mcp.tool()
+def format_table(
+    title: str,
+    headers: list[str],
+    rows: list[list[str]],
+    source: str = "Elaborado pelo autor (2026).",
+    table_number: int | str = 1,
+    category: Literal["tabela", "quadro"] = "tabela",
+) -> dict[str, Any]:
+    """
+    Formata dados no padrão das Normas Tabulares do IBGE (1993) e ABNT NBR 14724:
+    - 'tabela': para dados numéricos/estatísticos com bordas laterais ABERTAS (padrão IBGE).
+    - 'quadro': para dados textuais/qualitativos com bordas fechadas em moldura completa.
+    - Gera snippets em Markdown, LaTeX (booktabs para tabelas) e Typst.
+    """
+    return format_table_abnt(
+        title=title,
+        headers=headers,
+        rows=rows,
+        source=source,
+        table_number=table_number,
+        category=category,
     )
 
 
