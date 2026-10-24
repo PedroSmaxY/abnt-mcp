@@ -1,11 +1,43 @@
 """Configurações, padrões de regex e constantes para o ABNT Copilot MCP."""
 
 from __future__ import annotations
+from datetime import datetime
+from pathlib import Path
 import re
 
 SERVER_NAME = "abnt-mcp"
 SERVER_VERSION = "0.1.0"
 DEFAULT_USER_AGENT = f"{SERVER_NAME}/{SERVER_VERSION} (mailto:abnt-copilot@example.com)"
+
+
+def get_current_year() -> int:
+    """Retorna o ano corrente dinamicamente (evita datas hardcoded)."""
+    return datetime.now().year
+
+
+def get_default_author_source() -> str:
+    """Retorna a indicação de fonte autoral padrão com o ano corrente."""
+    return f"Elaborado pelo autor ({get_current_year()})."
+
+
+def validate_safe_path(target_path: str | Path, base_dir: str | Path | None = None) -> Path:
+    """
+    Valida caminhos de arquivo contra caracteres nulos e path traversal fora de base_dir.
+    """
+    raw_str = str(target_path)
+    if "\x00" in raw_str or not raw_str.strip():
+        raise ValueError(f"Caminho inválido ou malformado: '{target_path}'")
+
+    resolved = Path(target_path).expanduser().resolve()
+    if base_dir is not None:
+        base_resolved = Path(base_dir).expanduser().resolve()
+        try:
+            resolved.relative_to(base_resolved)
+        except ValueError as exc:
+            raise ValueError(
+                f"Operação bloqueada por segurança (Path Traversal): '{resolved}' está fora do diretório base '{base_resolved}'."
+            ) from exc
+    return resolved
 
 # Catálogo de Regras Normativas Canônicas (Spec-Driven Development)
 # Sincronizado com specs/01-normative-catalog.spec.md

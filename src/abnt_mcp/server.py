@@ -278,7 +278,7 @@ def generate_academic_resumo(
 def format_figure(
     image_path: str,
     caption: str,
-    source: str = "Elaborado pelo autor (2026).",
+    source: str | None = None,
     figure_number: int | str = 1,
     target_format: Literal["markdown", "latex", "typst"] = "markdown",
 ) -> dict[str, Any]:
@@ -286,7 +286,7 @@ def format_figure(
     Formata uma figura/imagem no padrão da ABNT NBR 14724:
     - Identificação no topo ('Figura X – Título').
     - Imagem centralizada com caminho no computador.
-    - Indicação da fonte obrigatória no rodapé.
+    - Indicação da fonte obrigatória no rodapé (default dinâmico com ano corrente).
     - Fornece exemplo da chamada obrigatória no texto e snippets prontos em Markdown, LaTeX e Typst.
     """
     return format_figure_abnt(
@@ -303,7 +303,7 @@ def format_table(
     title: str,
     headers: list[str],
     rows: list[list[str]],
-    source: str = "Elaborado pelo autor (2026).",
+    source: str | None = None,
     table_number: int | str = 1,
     category: Literal["tabela", "quadro"] = "tabela",
 ) -> dict[str, Any]:

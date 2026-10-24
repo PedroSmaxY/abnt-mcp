@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 import requests
 
-from abnt_mcp.config import DEFAULT_USER_AGENT
+from abnt_mcp.config import DEFAULT_USER_AGENT, validate_safe_path
 from abnt_mcp.models import AcademicPaper
 from abnt_mcp.parsers.bibtex import (
     sanitize_bibtex_string,
@@ -195,27 +195,38 @@ def fetch_bibtex_by_doi_service(doi: str, bib_file: str | None = None) -> dict[s
 def clean_bibtex_file_service(bib_path: str, output_path: str | None = None) -> dict[str, Any]:
     """
     Higieniza um arquivo BibTeX segundo a NBR 6023:
-    corrige meses abreviados, limpa acentos corrompidos, verifica campos obrigatórios
+    corrige meses abreviados, limpa acentos corrompidos, verifica campos obrigatórios,
+    cria backup automático (.abnt-mcp/backups/) quando sobrescreve arquivo existente
     e salva o arquivo em UTF-8 estrito.
     """
-    in_path = Path(bib_path)
+    in_path = validate_safe_path(bib_path)
     if not in_path.is_file():
         raise FileNotFoundError(f"Arquivo BibTeX não encontrado: {in_path}")
 
     content = in_path.read_text(encoding="utf-8", errors="replace")
     cleaned_text, warnings = sanitize_bibtex_string(content)
 
-    out_file = Path(output_path) if output_path else in_path
+    out_file = validate_safe_path(output_path) if output_path else in_path
     out_file.parent.mkdir(parents=True, exist_ok=True)
+
+    backup_path_str: str | None = None
+    if out_file.is_file():
+        backup_dir = out_file.parent / ".abnt-mcp" / "backups"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        backup_file = backup_dir / f"{out_file.name}.bak"
+        backup_file.write_text(out_file.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
+        backup_path_str = str(backup_file)
+
     out_file.write_text(cleaned_text, encoding="utf-8")
 
     return {
         "success": True,
         "input_file": str(in_path),
         "output_file": str(out_file),
+        "backup_path": backup_path_str,
         "corrections_made": warnings,
         "total_corrections": len(warnings),
-        "message": f"Arquivo BibTeX higienizado com sucesso ({len(warnings)} correções/avisos)."
+        "message": f"Arquivo BibTeX higienizado com sucesso ({len(warnings)} correções/avisos).",
     }
 
 

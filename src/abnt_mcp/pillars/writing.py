@@ -7,7 +7,7 @@ Gerador de Resumo e Abstract (NBR 6028:2021) e Assistente de Escrita Impessoal.
 from __future__ import annotations
 import re
 from typing import Any
-from abnt_mcp.config import ABNT_MONTHS
+from abnt_mcp.config import ABNT_MONTHS, get_default_author_source
 from abnt_mcp.models import CitationInput, ReferenceInput
 
 
@@ -361,7 +361,7 @@ def reformulate_to_impersonal(text: str) -> dict[str, Any]:
 def format_figure_abnt(
     image_path: str,
     caption: str,
-    source: str = "Elaborado pelo autor (2026).",
+    source: str | None = None,
     figure_number: int | str = 1,
     target_format: str = "markdown",
 ) -> dict[str, Any]:
@@ -372,8 +372,9 @@ def format_figure_abnt(
     - Indicação da fonte no rodapé: 'Fonte: ...' (tamanho 10).
     - Chamada obrigatória no texto precedente ('conforme a Figura X').
     """
+    effective_source = (source or get_default_author_source()).strip()
     label_fig = f"Figura {figure_number} – {caption.strip()}"
-    source_fig = f"Fonte: {source.strip()}"
+    source_fig = f"Fonte: {effective_source}"
     text_call = f"Conforme ilustra a Figura {figure_number}, ..."
 
     # Snippet em Markdown
@@ -390,7 +391,7 @@ def format_figure_abnt(
         f"    \\centering\n"
         f"    \\caption{{{caption.strip()}}}\n"
         f"    \\includegraphics[width=0.8\\textwidth]{{{clean_path}}}\n"
-        f"    \\fonte{{{source.strip()}}}\n"
+        f"    \\fonte{{{effective_source}}}\n"
         f"    \\label{{fig:figura{figure_number}}}\n"
         f"\\end{{figure}}"
     )
@@ -408,7 +409,7 @@ def format_figure_abnt(
         "standard": "ABNT NBR 14724:2011",
         "figure_number": figure_number,
         "caption": caption.strip(),
-        "source": source.strip(),
+        "source": effective_source,
         "text_call_example": text_call,
         "rules": [
             "Identificação no topo com tipo, número de ordem e título.",
@@ -428,7 +429,7 @@ def format_table_abnt(
     title: str,
     headers: list[str],
     rows: list[list[str]],
-    source: str = "Elaborado pelo autor (2026).",
+    source: str | None = None,
     table_number: int | str = 1,
     category: str = "tabela",
 ) -> dict[str, Any]:
@@ -437,10 +438,11 @@ def format_table_abnt(
     - Tabela (dados numéricos/estatísticos): laterais ABERTAS, sem linhas verticais externas.
     - Quadro (dados qualitativos/textuais): bordas laterais FECHADAS (moldura completa).
     """
+    effective_source = (source or get_default_author_source()).strip()
     is_table = category.lower() in {"tabela", "table"}
     type_name = "Tabela" if is_table else "Quadro"
     top_label = f"{type_name} {table_number} – {title.strip()}"
-    source_label = f"Fonte: {source.strip()}"
+    source_label = f"Fonte: {effective_source}"
     text_call = f"Como indicado na {type_name} {table_number}, ..."
 
     # 1. Markdown
@@ -479,7 +481,7 @@ def format_table_abnt(
         f"    \\centering\n"
         f"    \\caption{{{title.strip()}}}\n"
         f"    {latex_tabular}\n"
-        f"    \\fonte{{{source.strip()}}}\n"
+        f"    \\fonte{{{effective_source}}}\n"
         f"    \\label{{{category.lower()}:{table_number}}}\n"
         f"\\end{{{category.lower()}}}"
     )
