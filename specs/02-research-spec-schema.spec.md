@@ -25,6 +25,7 @@ Define sob qual regime normativo e padrão institucional (aprendido via PDF de e
 - `course`: Curso de graduação ou programa de pós-graduação (opcional).
 - `department`: Centro, instituto, faculdade ou departamento (opcional).
 - `advisor`: Nome do(a) professor(a) orientador(a) (opcional).
+- `city`: Cidade/Local da instituição exibida no rodapé da Capa e Folha de Rosto (ex.: `"Rio de Janeiro"`, `"Curitiba - PR"`).
 - `cover_header_lines`: Linhas superiores da capa na ordem institucional exata (ex.: `["UNIVERSIDADE...", "CENTRO...", "CURSO..."]`).
 - `has_cover_logo`: Indica se a capa institucional exige brasão/logotipo (`bool`, padrão: `false`).
 - `cover_logo_path`: Caminho relativo da imagem do logotipo copiada ou extraída para o projeto (ex.: `"figuras/logo_instituicao.png"`).
@@ -70,6 +71,7 @@ Define o esqueleto estrutural esperado do manuscrito:
     "document_type": "tcc",
     "standard": "ABNT_14724",
     "institution": "Universidade Federal",
+    "city": "Rio de Janeiro",
     "emphasis_style": "bold",
     "min_references": 15,
     "min_scientific_tone_score": 80
@@ -134,6 +136,8 @@ Para geração de projetos e compilação em formato Typst (`scaffold_academic_p
 3. **Recuo de Parágrafos ABNT:**
    - Recuo obrigatório de 1,25 cm em todos os parágrafos de texto, inclusive no primeiro parágrafo após cada título, via `#set par(..., first-line-indent: (amount: 1.25cm, all: true))`.
 4. **Espaçamento Entrelinhas Calibrado:**
-   - Entrelinhas 1,5 real ABNT configurado no Typst como `#set par(leading: 0.8em)` (evitando valores literais `leading: 1.5em` que quadruplicam o entrelinhas tipográfico).
+   - Entrelinhas 1,5 real ABNT configurado no Typst como `#set par(leading: 0.75em)` (evitando valores literais `leading: 1.5em` que quadruplicam o entrelinhas tipográfico).
 5. **Listas Pré-Textuais Reativas por Introspecção (`context query(...)`):**
    - As listas de Ilustrações (`figure.where(kind: image)`), Tabelas (`figure.where(kind: table)`) e Quadros (`figure.where(kind: "quadro")`) são geradas de forma condicional/reativa: só aparecem no PDF se houver itens presentes no texto, evitando páginas em branco ou listas vazias com títulos órfãos.
+6. **Lista de Abreviaturas e Siglas com Diagramação Fluida (`#grid`):**
+   - A Lista de Siglas utiliza `#grid(columns: (auto, 1fr), column-gutter: 1.2em, row-gutter: 1em, ...)` com travessão (`--`), adaptando-se dinamicamente à largura de cada sigla sem criar vãos horizontais excessivos e rígidos.
