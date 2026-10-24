@@ -57,8 +57,8 @@ def lint_latex_source(content: str) -> list[dict[str, Any]]:
     # %, _, &, $, # fora de comandos matemáticos ou comentários
     for line_num, line in enumerate(lines, start=1):
         clean_line = line.split("%")[0] if "%" in line else line
-        # Checa '_' fora de modo matemático e fora de \cite/\label/\ref
-        if "_" in clean_line and not re.search(r"(\$|\\label|\\cite|\\ref|\\input|\\include)", clean_line):
+        # Checa '_' fora de modo matemático e fora de \cite/\label/\ref/\bibliography
+        if "_" in clean_line and not re.search(r"(\$|\\label|\\cite|\\ref|\\input|\\include|\\bibliography)", clean_line):
             if re.search(r"(?<!\\)_", clean_line):
                 issues.append({
                     "line": line_num,
