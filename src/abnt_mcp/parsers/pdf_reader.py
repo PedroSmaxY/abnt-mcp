@@ -398,10 +398,24 @@ def extract_institutional_pattern_from_pdf(
 
     max_scan_pages = min(len(reader.pages), 20)
     for idx in range(max_scan_pages):
-        p_text = (reader.pages[idx].extract_text() or "").lower()
+        raw_page_text = reader.pages[idx].extract_text() or ""
+        p_text = raw_page_text.lower()
+        p_lines = [ln.strip() for ln in raw_page_text.splitlines() if ln.strip()]
+
+        # Se a página já é o início da Introdução textual (após Capa/Folha de Rosto), encerra a varredura pré-textual
+        if idx >= 2 and any(
+            re.search(r"^(=+\s*)?(1\s+)?(cap.{1,2}tulo\s+1\s+)?introdu.{1,3}o\b", ln, re.IGNORECASE)
+            for ln in p_lines[:5]
+        ):
+            break
+
         for elem_name, pattern in pre_textual_Catalog.items():
             if elem_name not in required_pre_textual and re.search(pattern, p_text, re.IGNORECASE):
                 required_pre_textual.append(elem_name)
+
+        # O Sumário é o último elemento pré-textual (NBR 14724); interrompe após processá-lo
+        if idx >= 2 and any(re.search(r"^sum.{1,2}rio\b", ln, re.IGNORECASE) for ln in p_lines[:4]):
+            break
 
     # Verifica nas últimas páginas ou no sumário se usa "Considerações Finais"
     for idx in range(len(reader.pages)):
