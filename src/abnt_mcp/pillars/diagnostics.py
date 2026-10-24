@@ -23,6 +23,7 @@ from abnt_mcp.models import (
     ToneAnalysisResult,
     ToneIssue,
     CitationValidationResult,
+    IllustrationAuditResult,
 )
 from abnt_mcp.parsers.citations import (
     extract_citations_from_project,
@@ -552,4 +553,262 @@ def analyze_scientific_tone(text: str) -> ToneAnalysisResult:
         diagnostics=tone_diagnostics,
         summary=summary,
         suggested_rewrites=suggested_rewrites,
+    )
+
+
+def audit_project_illustrations_and_tables(project_path: str | Path) -> IllustrationAuditResult:
+    """
+    Audita figuras, tabelas e quadros do projeto conforme a ABNT NBR 14724 (item 5.8)
+    e as Normas de Apresentação Tabular do IBGE (1993):
+    1. Verifica chamada prévia obrigatória no texto antes da ilustração/tabela ('Figura X', 'Tabela X', 'Quadro X');
+    2. Verifica presença obrigatória de 'Fonte:' (ou '\\fonte{...}') na parte inferior;
+    3. Verifica existência física dos arquivos de imagem referenciados em Markdown, LaTeX e Typst;
+    4. Verifica sequência numérica (sem saltos ou duplicidades por categoria);
+    5. Detecta possível confusão conceitual entre Tabela (quantitativo/bordas laterais abertas) e Quadro (qualitativo/fechado).
+    """
+    path = Path(project_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Caminho do projeto não encontrado: {path}")
+
+    project_dir = path if path.is_dir() else path.parent
+    if path.is_file():
+        files = [path]
+    else:
+        files = sorted([
+            f for f in path.rglob("*")
+            if f.is_file()
+            and f.suffix.lower() in {".tex", ".md", ".typ"}
+            and f.name != "SPEC.md"
+            and not any(p.startswith(".") or p in {"build", "dist", ".venv"} for p in f.parts)
+        ])
+
+    unreferenced_items: list[dict[str, Any]] = []
+    missing_sources: list[dict[str, Any]] = []
+    broken_image_paths: list[dict[str, Any]] = []
+    numbering_issues: list[dict[str, Any]] = []
+    quadro_vs_tabela_warnings: list[dict[str, Any]] = []
+    diagnostics: list[DiagnosticItem] = []
+
+    counts = {"figura": 0, "tabela": 0, "quadro": 0}
+    seen_numbers: dict[str, list[tuple[int, str, int]]] = {"figura": [], "tabela": [], "quadro": []}
+
+    decl_pattern = re.compile(
+        r"(?:^\s*(?:\*\*|\*|#figure\(|\\caption\{)?\s*(Figura|Tabela|Quadro)\s+(\d+)\s*[-–—:]\s*([^\n*\]\}]+))",
+        re.IGNORECASE,
+    )
+    img_patterns = [
+        re.compile(r"!\[[^\]]*\]\(([^)]+)\)"),
+        re.compile(r"\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}"),
+        re.compile(r'#?image\("([^"]+)"'),
+    ]
+
+    for f in files:
+        try:
+            content = f.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+
+        rel_file = str(f.relative_to(project_dir)) if f.is_relative_to(project_dir) else f.name
+        lines = content.splitlines()
+
+        # 1. Verifica caminhos de imagens quebrados
+        for line_idx, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if stripped.startswith("%") or stripped.startswith("//"):
+                continue
+            for pat in img_patterns:
+                for m_img in pat.finditer(line):
+                    raw_img_path = m_img.group(1).strip()
+                    if raw_img_path.startswith(("http://", "https://", "data:")):
+                        continue
+                    candidate_1 = project_dir / raw_img_path
+                    candidate_2 = f.parent / raw_img_path
+                    if not (candidate_1.is_file() or candidate_2.is_file()):
+                        item_err = {
+                            "image_path": raw_img_path,
+                            "file": rel_file,
+                            "line": line_idx,
+                        }
+                        broken_image_paths.append(item_err)
+                        diagnostics.append(DiagnosticItem(
+                            rule_id="NBR14724-R03",
+                            nature="normative",
+                            severity="error",
+                            confidence="high",
+                            message=f"Arquivo de imagem '{raw_img_path}' não encontrado no projeto.",
+                            suggestion=f"Verifique o caminho da imagem '{raw_img_path}' ou adicione o arquivo em 'figuras/'.",
+                            file=rel_file,
+                            line=line_idx,
+                            human_review_required=False,
+                        ))
+
+        # 2. Verifica declarações de Figuras, Tabelas e Quadros
+        for idx, line in enumerate(lines):
+            m_decl = decl_pattern.search(line)
+            if not m_decl:
+                continue
+
+            kind_raw = m_decl.group(1).lower()
+            num_val = int(m_decl.group(2))
+            caption_title = m_decl.group(3).strip()
+            line_no = idx + 1
+
+            counts[kind_raw] += 1
+            seen_numbers[kind_raw].append((num_val, rel_file, line_no))
+
+            # 2a. Verifica chamada prévia no texto antes da linha atual
+            preceding_text = "\n".join(lines[:idx])
+            call_regex = re.compile(
+                rf"\b{kind_raw}\s+{num_val}\b|\\ref\{{|@(?:fig|tab|quadro)",
+                re.IGNORECASE,
+            )
+            if not call_regex.search(preceding_text):
+                unref_info = {
+                    "type": kind_raw,
+                    "number": num_val,
+                    "title": caption_title,
+                    "file": rel_file,
+                    "line": line_no,
+                }
+                unreferenced_items.append(unref_info)
+                diagnostics.append(DiagnosticItem(
+                    rule_id="NBR14724-R03",
+                    nature="normative",
+                    severity="warning",
+                    confidence="high",
+                    message=(
+                        f"{kind_raw.capitalize()} {num_val} ('{caption_title}') não possui chamada textual prévia "
+                        f"no parágrafo anterior (ex: 'conforme a {kind_raw.capitalize()} {num_val}')."
+                    ),
+                    suggestion=f"Insira uma chamada no texto antes da {kind_raw.capitalize()} {num_val}.",
+                    file=rel_file,
+                    line=line_no,
+                    human_review_required=False,
+                ))
+
+            # Determina o limite do bloco atual (até a próxima Figura/Tabela/Quadro ou até 15 linhas)
+            block_end_idx = min(len(lines), idx + 16)
+            for next_i in range(idx + 1, block_end_idx):
+                if decl_pattern.search(lines[next_i]):
+                    block_end_idx = next_i
+                    break
+
+            # 2b. Verifica presença de 'Fonte:' dentro do bloco do item atual
+            window_lines = lines[idx:block_end_idx]
+            window_text = "\n".join(window_lines)
+            has_source = bool(re.search(r"(?:\bfonte\s*:|\\fonte\{|\\legend\{)", window_text, re.IGNORECASE))
+            if not has_source:
+                miss_info = {
+                    "type": kind_raw,
+                    "number": num_val,
+                    "title": caption_title,
+                    "file": rel_file,
+                    "line": line_no,
+                }
+                missing_sources.append(miss_info)
+                diagnostics.append(DiagnosticItem(
+                    rule_id="NBR14724-R03",
+                    nature="normative",
+                    severity="error",
+                    confidence="high",
+                    message=(
+                        f"{kind_raw.capitalize()} {num_val} ('{caption_title}') não apresenta indicação obrigatória "
+                        "de 'Fonte:' na parte inferior (mesmo quando elaborada pelo próprio autor)."
+                    ),
+                    suggestion="Adicione 'Fonte: Elaborado pelo autor (ANO).' na parte inferior.",
+                    file=rel_file,
+                    line=line_no,
+                    human_review_required=False,
+                ))
+
+            # 2c. Verifica distinção conceitual Tabela vs Quadro (IBGE 1993)
+            if kind_raw == "tabela":
+                # Se usa bordas verticais fechadas no LaTeX (\begin{tabular}{|...|}) ou se as linhas da tabela não têm nenhum dígito
+                body_window = "\n".join(lines[idx + 1 : block_end_idx])
+                has_closed_latex_borders = bool(re.search(r"\\begin\{tabular\}\{\|.*\|\}", body_window))
+                # Linhas de células markdown/latex
+                cell_lines = [
+                    ln for ln in lines[idx + 1 : block_end_idx]
+                    if ("|" in ln or "&" in ln) and not re.match(r"^\s*\|?[\s\-:|]+\|?\s*$", ln)
+                ]
+                cells_joined = " ".join(cell_lines)
+                has_only_text_in_cells = len(cell_lines) >= 2 and not bool(re.search(r"\d", cells_joined))
+
+                if has_closed_latex_borders or has_only_text_in_cells:
+                    reason = (
+                        "bordas laterais fechadas em LaTeX ('{|...|}')"
+                        if has_closed_latex_borders
+                        else "conteúdo exclusivamente textual/qualitativo sem dados numéricos"
+                    )
+                    warn_item = {
+                        "type": "tabela",
+                        "number": num_val,
+                        "title": caption_title,
+                        "reason": reason,
+                        "file": rel_file,
+                        "line": line_no,
+                    }
+                    quadro_vs_tabela_warnings.append(warn_item)
+                    diagnostics.append(DiagnosticItem(
+                        rule_id="IBGE1993-R01",
+                        nature="normative",
+                        severity="warning",
+                        confidence="medium",
+                        message=(
+                            f"Tabela {num_val} ('{caption_title}') apresenta {reason}. "
+                            "Pelas Normas Tabulares do IBGE (1993), dados qualitativos/textuais com bordas fechadas constituem um 'Quadro'."
+                        ),
+                        suggestion=f"Avalie reclassificar 'Tabela {num_val}' para 'Quadro {num_val}' ou remover bordas verticais laterais.",
+                        file=rel_file,
+                        line=line_no,
+                        human_review_required=True,
+                    ))
+
+    # 3. Verifica sequência numérica por categoria
+    for kind_raw, items_list in seen_numbers.items():
+        expected = 1
+        for num_val, rel_file, line_no in items_list:
+            if num_val != expected:
+                num_err = {
+                    "type": kind_raw,
+                    "found_number": num_val,
+                    "expected_number": expected,
+                    "file": rel_file,
+                    "line": line_no,
+                }
+                numbering_issues.append(num_err)
+                diagnostics.append(DiagnosticItem(
+                    rule_id="NBR14724-R03",
+                    nature="normative",
+                    severity="warning",
+                    confidence="high",
+                    message=(
+                        f"Quebra de sequência numérica em {kind_raw.capitalize()}: encontrado número {num_val}, "
+                        f"mas esperava-se {expected}."
+                    ),
+                    suggestion=f"Renumere sequencialmente para '{kind_raw.capitalize()} {expected}'.",
+                    file=rel_file,
+                    line=line_no,
+                    human_review_required=False,
+                ))
+            expected = num_val + 1
+
+    is_valid = (
+        len(unreferenced_items) == 0
+        and len(missing_sources) == 0
+        and len(broken_image_paths) == 0
+        and len(numbering_issues) == 0
+    )
+
+    return IllustrationAuditResult(
+        is_valid=is_valid,
+        total_figures=counts["figura"],
+        total_tables=counts["tabela"],
+        total_quadros=counts["quadro"],
+        unreferenced_items=unreferenced_items,
+        missing_sources=missing_sources,
+        broken_image_paths=broken_image_paths,
+        numbering_issues=numbering_issues,
+        quadro_vs_tabela_warnings=quadro_vs_tabela_warnings,
+        diagnostics=diagnostics,
     )

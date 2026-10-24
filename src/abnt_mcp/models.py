@@ -149,6 +149,38 @@ class CitationValidationResult(BaseModel):
     is_consistent: bool
 
 
+class IllustrationAuditResult(BaseModel):
+    """Resultado da auditoria de figuras, tabelas e quadros (NBR 14724 item 5.8 e IBGE 1993)."""
+    is_valid: bool
+    total_figures: int = 0
+    total_tables: int = 0
+    total_quadros: int = 0
+    unreferenced_items: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Ilustrações, tabelas ou quadros declarados sem chamada prévia no texto"
+    )
+    missing_sources: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Itens sem indicação obrigatória de 'Fonte:' na parte inferior"
+    )
+    broken_image_paths: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Caminhos de arquivos de imagem referenciados que não existem no disco"
+    )
+    numbering_issues: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Numeração fora de ordem sequencial ou duplicada"
+    )
+    quadro_vs_tabela_warnings: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Alertas de confusão conceitual entre Tabela (quantitativo) e Quadro (qualitativo)"
+    )
+    diagnostics: list[DiagnosticItem] = Field(
+        default_factory=list,
+        description="Lista de diagnósticos unificados"
+    )
+
+
 class AcademicPaper(BaseModel):
     """Metadados de um artigo científico retornado por APIs de busca."""
     title: str
