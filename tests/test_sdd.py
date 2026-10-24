@@ -555,3 +555,51 @@ Fonte: Elaborado pelo autor (2026).
     assert len(res["quadro_vs_tabela_warnings"]) == 1
     assert any(d["rule_id"] == "IBGE1993-R01" for d in res["diagnostics"])
     assert any(d["rule_id"] == "NBR14724-R03" for d in res["diagnostics"])
+
+
+def test_comprehensive_spec_audit_institutional_rules_and_persistent_reports(tmp_path: Path) -> None:
+    """Valida auditoria integrada (regras institucionais, prontidão de entrega e relatórios em .abnt-mcp/)."""
+    sample_pdf = tmp_path / "modelo_uf.pdf"
+    _build_university_sample_pdf_with_logo(sample_pdf)
+
+    proj_dir = tmp_path / "tcc_integrado"
+    scaffold_academic_project(
+        project_path=str(proj_dir),
+        title="Auditoria Acadêmica Orientada a Especificação",
+        author="Pedro Henrique Novais",
+        document_type="tcc",
+        format="typst",
+        sample_pdf_path=str(sample_pdf),
+    )
+
+    # 1. Primeira auditoria: faltam 'ficha catalografica' e 'folha de aprovacao' exigidas pelo PDF da faculdade
+    audit_1 = audit_research_spec(str(proj_dir))
+    assert audit_1["submission_readiness"] == "NOT_READY"
+    assert audit_1["institutional_compliance"]["is_compliant"] is False
+    assert "ficha catalografica" in audit_1["institutional_compliance"]["missing_pre_textual"]
+    assert any(d["rule_id"] == "INST-PROFILE-PRETEXTUAL" and d["nature"] == "institutional" for d in audit_1["diagnostics"])
+
+    # Verifica persistência dos relatórios em .abnt-mcp/
+    json_report = Path(audit_1["saved_report_paths"]["json"])
+    md_report = Path(audit_1["saved_report_paths"]["markdown"])
+    assert json_report.is_file()
+    assert md_report.is_file()
+    assert "Relatório de Conformidade Acadêmica (SDD)" in md_report.read_text(encoding="utf-8")
+
+    # 2. Corrige as pendências institucionais e ajusta min_references=1 na spec
+    spec_file = proj_dir / "abnt.spec.json"
+    spec_data = json.loads(spec_file.read_text(encoding="utf-8"))
+    spec_data["profile"]["min_references"] = 1
+    spec_file.write_text(json.dumps(spec_data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    main_typ = proj_dir / "main.typ"
+    main_typ.write_text(
+        main_typ.read_text(encoding="utf-8")
+        + "\n// Elementos pré-textuais institucionais\n// Ficha Catalográfica e Folha de Aprovação\n",
+        encoding="utf-8",
+    )
+
+    audit_2 = audit_research_spec(str(proj_dir))
+    assert audit_2["institutional_compliance"]["is_compliant"] is True
+    assert audit_2["is_compliant"] is True
+    assert audit_2["submission_readiness"] in {"READY", "READY_WITH_WARNINGS"}
