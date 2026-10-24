@@ -11,13 +11,19 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 ## [Unreleased]
 
 ### Adicionado
+- **Suporte a Cidade/Local Dinâmica no Perfil e Rodapé (`models.py`, `pdf_reader.py` e `spec.py`):**
+  - Adicionado campo `city: str | None` no modelo `NormativeProfile`.
+  - Extração automática da cidade/local das últimas linhas da Capa (linha adjacente ao ano de publicação) em `infer_institutional_profile_from_pdf`.
+  - Substituição do texto fixo `"BRASIL"` na Capa e Folha de Rosto por `{(spec.profile.city or 'CIDADE - UF').upper()}` em Typst, LaTeX e Markdown.
+- **Lista de Siglas com Diagramação Fluida em `#grid` (`spec.py` e `typst.py`):**
+  - Substituição da tabela de siglas de vão fixo (`2.5cm`) por `#grid(columns: (auto, 1fr), column-gutter: 1.2em, row-gutter: 1em, ...)` com travessão (`--`), adaptando-se harmonicamente à largura de cada sigla conforme a ABNT NBR 14724.
 - **Listas Pré-Textuais Reativas no Typst (`src/abnt_mcp/pillars/spec.py` e `src/abnt_mcp/templates/typst.py`):**
   - Implementação de blocos reativos com introspecção `#context query(figure.where(...))` para Lista de Ilustrações (`kind: image`), Lista de Tabelas (`kind: table`) e Lista de Quadros (`kind: "quadro"`). As listas materializam-se automaticamente apenas se o documento contiver itens correspondentes, com pontilhado e número de página exato, prevenindo páginas em branco ou listas vazias com títulos órfãos (ABNT NBR 14724 itens 5.6 e 5.7).
 - **Invariantes de Diagramação ABNT no Typst (`spec.py` e `typst.py`):**
   - Quebra obrigatória de página em seções primárias via `#show heading.where(level: 1): it => { pagebreak(weak: true); v(1.5cm); it; v(1.5cm) }` (NBR 14724 item 5.2.1), impedindo que capítulos como Conclusão sejam colados no final do capítulo anterior.
   - Posicionamento de identificação (legenda) de figuras, tabelas e quadros sempre no topo via `#show figure: set figure.caption(position: top)` (NBR 14724 item 5.8 e Normas Tabulares do IBGE de 1993).
   - Recuo de primeiro parágrafo ABNT de 1,25 cm forçado em todos os parágrafos inclusive após headings com `#set par(first-line-indent: (amount: 1.25cm, all: true))`.
-  - Calibração do entrelinhas 1,5 real ABNT para Typst com `#set par(leading: 0.8em)`.
+  - Calibração do entrelinhas 1,5 real ABNT para Typst com `#set par(leading: 0.75em)`.
 - **Suporte Nativo a Quadros no Typst (`src/abnt_mcp/pillars/writing.py`):**
   - O utilitário `format_table_abnt` agora emite `kind: "quadro"` e `supplement: [Quadro]` no snippet Typst quando `category == "quadro"`, diferenciando a numeração e a legenda de Quadros em relação a Tabelas.
 - **Injeção Dinâmica de Elementos Pré-Textuais Institucionais no Scaffold (`src/abnt_mcp/pillars/spec.py`):**
@@ -26,6 +32,8 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
   - Inclusão de `"ficha catalografica"` e `"lista de quadros"` em `OPTIONAL_ELEMENTS` e `ELEMENT_PATTERNS` para paridade integral entre `check_structure`, `extract_institutional_pattern_from_pdf` e `audit_research_spec`.
 
 ### Corrigido
+- **Blindagem Anti-Contaminação do Cabeçalho da Capa (`src/abnt_mcp/parsers/pdf_reader.py`):**
+  - Remoção da captura genérica por caixa alta em `infer_institutional_profile_from_pdf` que incluía erroneamente nomes de autores e títulos em caixa alta no cabeçalho da universidade, restringindo a detecção a palavras-chave estritamente institucionais e interrompendo a leitura imediatamente caso linhas não institucionais sejam encontradas.
 - **Delimitação da Varredura Pré-Textual em PDFs (`src/abnt_mcp/parsers/pdf_reader.py`):**
   - Interrupção da busca por elementos pré-textuais em `extract_institutional_pattern_from_pdf` assim que o `Sumário` ou a primeira seção textual (`Introdução`) é atingida, evitando falsos-positivos quando termos como `"Lista de Tabelas"` são mencionados no corpo do texto.
 
