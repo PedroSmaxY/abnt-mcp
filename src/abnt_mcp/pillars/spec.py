@@ -11,11 +11,13 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import unicodedata
 from pathlib import Path
 from typing import Any, Literal
 
 from abnt_mcp.config import NORMATIVE_RULES, get_current_year
 from abnt_mcp.models import (
+    DiagnosticItem,
     ResearchSpec,
     NormativeProfile,
     SpecificObjective,
@@ -30,6 +32,7 @@ from abnt_mcp.pillars.diagnostics import (
     check_project_structure,
     audit_citations_and_references,
     analyze_scientific_tone,
+    audit_project_illustrations_and_tables,
 )
 
 
@@ -772,29 +775,149 @@ def _split_body_and_conclusion(full_text: str) -> tuple[str, str]:
     return body_text, conclusion_text
 
 
+def _render_compliance_report_markdown(result: SpecAuditResult) -> str:
+    """Renderiza o relatório consolidado de conformidade em Markdown (`.abnt-mcp/relatorio-conformidade.md`)."""
+    lines = [
+        f"# Relatório de Conformidade Acadêmica (SDD): {result.title}",
+        "",
+        f"- **Prontidão para Entrega (`submission_readiness`):** `{result.submission_readiness}`",
+        f"- **Score Global SDD:** `{result.spec_compliance_score}/100`",
+        f"- **Tipo Documental:** `{result.document_type.upper()}` (`{result.standard_applied}`)",
+        f"- **Estrutura Normativa:** `{result.structure_score}/100`",
+        f"- **Atendimento de Objetivos Específicos:** `{result.objectives_fulfillment_rate}%`",
+        f"- **Rigor Científico (Heurístico):** `{result.tone_score}/100`",
+        f"- **Referências no `.bib`:** `{result.references_count}/{result.min_references_required}`",
+        "",
+        "## 1. Auditoria de Objetivos Específicos (`OBJ-XX`)",
+        "",
+        "| ID | Status | Corpo | Conclusão | Feedback |",
+        "| :--- | :---: | :---: | :---: | :--- |",
+    ]
+    for obj in result.objectives_audit:
+        lines.append(
+            f"| `{obj.id}` | `{obj.status}` | {'Sim' if obj.covered_in_body else 'Não'} "
+            f"| {'Sim' if obj.answered_in_conclusion else 'Não'} | {obj.feedback} |"
+        )
+
+    lines.extend([
+        "",
+        "## 2. Conformidade Institucional e Ilustrações",
+        "",
+        f"- **Conformidade Institucional:** `{result.institutional_compliance.get('is_compliant', True)}`",
+        f"- **Ilustrações / Tabelas Válidas:** `{result.illustrations_summary.get('is_valid', True)}` "
+        f"(Figuras: {result.illustrations_summary.get('total_figures', 0)}, "
+        f"Tabelas: {result.illustrations_summary.get('total_tables', 0)}, "
+        f"Quadros: {result.illustrations_summary.get('total_quadros', 0)})",
+        "",
+        "## 3. Diagnósticos Rastreáveis",
+        "",
+    ])
+    if not result.diagnostics:
+        lines.append("- Nenhuma violação normativa ou institucional detectada.")
+    else:
+        for d in result.diagnostics:
+            lines.append(
+                f"- **[{d.severity.upper()}] `{d.rule_id}` ({d.nature}):** {d.message}"
+                + (f" *(Sugestão: {d.suggestion})*" if d.suggestion else "")
+            )
+
+    lines.extend(["", "## 4. Recomendações Prioritárias", ""])
+    for rec in result.recommendations:
+        lines.append(f"- {rec}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def audit_project_against_spec(
     project_path: str | Path,
     spec_path: str | Path | None = None,
 ) -> SpecAuditResult:
     """
     Executa a auditoria SDD completa confrontando o manuscrito acadêmico com o
-    manifesto `abnt.spec.json` nas 3 camadas (Perfil Normativo, Objetivos Específicos e Capítulos).
+    manifesto `abnt.spec.json` nas 3 camadas (Perfil Normativo/Institucional, Objetivos Específicos e Capítulos),
+    auditando ilustrações/tabelas e persistindo relatórios em `.abnt-mcp/`.
     """
     path = Path(project_path)
     if not path.exists():
         raise FileNotFoundError(f"Caminho do projeto não encontrado: {path}")
 
+    proj_dir = path if path.is_dir() else path.parent
     spec, resolved_spec_path = load_project_spec(path, spec_path)
 
-    # 1. Auditoria da Camada 1: Estrutura, Citações e Tom Científico
+    # 1. Auditoria da Camada 1: Estrutura, Citações, Ilustrações/Tabelas e Tom Científico
     structure_res = check_project_structure(path, standard=spec.profile.standard)
     citations_res = audit_citations_and_references(path)
+    illus_res = audit_project_illustrations_and_tables(path)
     full_text = _collect_manuscript_text(path)
     tone_res = analyze_scientific_tone(full_text)
 
     body_text, conclusion_text = _split_body_and_conclusion(full_text)
     body_lower = body_text.lower()
     concl_lower = conclusion_text.lower()
+    full_lower = full_text.lower()
+
+    # 1b. Auditoria de Regras Institucionais (aprendidas do PDF da faculdade ou configuradas no perfil)
+    institutional_diagnostics: list[DiagnosticItem] = []
+    missing_institutional_elements: list[str] = []
+    full_ascii = unicodedata.normalize("NFKD", full_lower).encode("ascii", "ignore").decode("ascii")
+
+    for req_elem in spec.profile.required_pre_textual:
+        elem_low = req_elem.lower()
+        elem_ascii = unicodedata.normalize("NFKD", elem_low).encode("ascii", "ignore").decode("ascii")
+        found_in_struct = elem_low in [e.lower() for e in structure_res.elements_found]
+        found_in_text = (elem_low in full_lower) or (elem_ascii in full_ascii)
+        if not (found_in_struct or found_in_text):
+            missing_institutional_elements.append(req_elem)
+            institutional_diagnostics.append(DiagnosticItem(
+                rule_id="INST-PROFILE-PRETEXTUAL",
+                nature="institutional",
+                severity="error",
+                confidence="high",
+                message=f"Elemento pré-textual exigido pelo padrão institucional ausente: '{req_elem}'.",
+                suggestion=f"Inclua a seção '{req_elem}' conforme o modelo da instituição ({spec.profile.institution or 'universidade'}).",
+                human_review_required=False,
+            ))
+
+    logo_ok = True
+    if spec.profile.has_cover_logo:
+        logo_rel = spec.profile.cover_logo_path or "figuras/logo_instituicao.png"
+        logo_file = proj_dir / logo_rel
+        logo_referenced = (logo_rel.lower() in full_lower) or (Path(logo_rel).name.lower() in full_lower)
+        if not logo_file.is_file() or not logo_referenced:
+            logo_ok = False
+            institutional_diagnostics.append(DiagnosticItem(
+                rule_id="INST-PROFILE-LOGO",
+                nature="institutional",
+                severity="warning",
+                confidence="high",
+                message=(
+                    f"O perfil institucional prevê logotipo na capa ('{logo_rel}'), "
+                    "mas o arquivo não foi encontrado ou não está referenciado na capa do manuscrito."
+                ),
+                suggestion=f"Verifique o arquivo '{logo_rel}' e sua inclusão na capa do documento.",
+                human_review_required=False,
+            ))
+
+    institutional_compliance = {
+        "institution": spec.profile.institution,
+        "inferred_from_pdf": spec.profile.inferred_from_pdf,
+        "required_pre_textual": spec.profile.required_pre_textual,
+        "missing_pre_textual": missing_institutional_elements,
+        "has_cover_logo": spec.profile.has_cover_logo,
+        "cover_logo_verified": logo_ok,
+        "is_compliant": len(missing_institutional_elements) == 0 and logo_ok,
+    }
+
+    illustrations_summary = {
+        "is_valid": illus_res.is_valid,
+        "total_figures": illus_res.total_figures,
+        "total_tables": illus_res.total_tables,
+        "total_quadros": illus_res.total_quadros,
+        "unreferenced_count": len(illus_res.unreferenced_items),
+        "missing_sources_count": len(illus_res.missing_sources),
+        "broken_images_count": len(illus_res.broken_image_paths),
+        "quadro_vs_tabela_warnings_count": len(illus_res.quadro_vs_tabela_warnings),
+    }
 
     # 2. Auditoria da Camada 2: Matriz Científica (Objetivos Específicos OBJ-XX)
     objectives_audit: list[ObjectiveAuditItem] = []
@@ -854,7 +977,6 @@ def audit_project_against_spec(
     # 3. Auditoria da Camada 3: Capítulos Planejados
     chapters_audit: list[ChapterAuditItem] = []
     found_chapters_count = 0
-    full_lower = full_text.lower()
 
     for ch in spec.planned_chapters:
         title_clean = ch.title.strip().lower()
@@ -876,7 +998,7 @@ def audit_project_against_spec(
     total_chapters = len(spec.planned_chapters)
     chapters_rate = int((found_chapters_count / total_chapters) * 100) if total_chapters else 100
 
-    # 4. Consolidação de Violações Normativas Rastreáveis
+    # 4. Consolidação de Violações Normativas Rastreáveis e Diagnósticos Unificados
     normative_issues: list[dict[str, str]] = list(structure_res.rule_violations)
 
     if citations_res.uppercase_violations:
@@ -906,6 +1028,14 @@ def audit_project_against_spec(
             ),
         })
 
+    all_diagnostics: list[DiagnosticItem] = (
+        list(structure_res.diagnostics)
+        + list(citations_res.diagnostics)
+        + list(illus_res.diagnostics)
+        + institutional_diagnostics
+        + list(tone_res.diagnostics)
+    )
+
     # 5. Cálculo do spec_compliance_score (0 a 100)
     ref_ratio = min(1.0, citations_res.total_references_in_bib / max(1, spec.profile.min_references))
     rigor_and_refs_score = int((tone_res.score * 0.6) + (ref_ratio * 100 * 0.4))
@@ -927,36 +1057,82 @@ def audit_project_against_spec(
     for ch_item in chapters_audit:
         if not ch_item.found_in_document:
             recommendations.append(f"Adicione o capítulo planejado '{ch_item.number} {ch_item.title}'.")
+    for miss_inst in missing_institutional_elements:
+        recommendations.append(f"Inclua o elemento pré-textual institucional obrigatório '{miss_inst}'.")
     if citations_res.total_references_in_bib < spec.profile.min_references:
         recommendations.append(
             f"Amplie a revisão bibliográfica no arquivo .bib de {citations_res.total_references_in_bib} "
             f"para pelo menos {spec.profile.min_references} referências."
         )
 
+    has_blocking_errors = any(
+        d.nature in {"normative", "institutional"} and d.severity in {"error", "critical"}
+        for d in all_diagnostics
+    )
+
     is_compliant = (
         structure_res.is_valid
         and objectives_fulfillment_rate >= 80
         and citations_res.is_consistent
+        and institutional_compliance["is_compliant"]
+        and not has_blocking_errors
         and spec_compliance_score >= 80
     )
 
-    return SpecAuditResult(
+    if not is_compliant or any(o.status == "missing" for o in objectives_audit):
+        submission_readiness: Literal["READY", "READY_WITH_WARNINGS", "NOT_READY"] = "NOT_READY"
+    elif (
+        any(d.severity == "warning" for d in all_diagnostics)
+        or objectives_fulfillment_rate < 100
+        or not illus_res.is_valid
+        or citations_res.total_references_in_bib < spec.profile.min_references
+    ):
+        submission_readiness = "READY_WITH_WARNINGS"
+    else:
+        submission_readiness = "READY"
+
+    audit_result = SpecAuditResult(
         spec_path=str(resolved_spec_path),
         title=spec.title,
         document_type=spec.profile.document_type,
         standard_applied=structure_res.standard,
         is_compliant=is_compliant,
+        submission_readiness=submission_readiness,
         spec_compliance_score=spec_compliance_score,
         structure_score=structure_res.compliance_score,
         objectives_fulfillment_rate=objectives_fulfillment_rate,
         tone_score=tone_res.score,
         references_count=citations_res.total_references_in_bib,
         min_references_required=spec.profile.min_references,
+        institutional_compliance=institutional_compliance,
+        illustrations_summary=illustrations_summary,
         objectives_audit=objectives_audit,
         chapters_audit=chapters_audit,
         normative_issues=normative_issues,
+        diagnostics=all_diagnostics,
         recommendations=recommendations,
     )
+
+    # 6. Persiste relatórios em .abnt-mcp/
+    try:
+        reports_dir = proj_dir / ".abnt-mcp"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        last_audit_json = reports_dir / "last-audit.json"
+        report_md = reports_dir / "relatorio-conformidade.md"
+
+        audit_result.saved_report_paths = {
+            "json": str(last_audit_json),
+            "markdown": str(report_md),
+        }
+        last_audit_json.write_text(
+            json.dumps(audit_result.model_dump(), indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        report_md.write_text(_render_compliance_report_markdown(audit_result), encoding="utf-8")
+    except Exception:
+        pass
+
+    return audit_result
 
 
 def get_spec_template_resource() -> str:

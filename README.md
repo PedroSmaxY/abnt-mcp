@@ -6,8 +6,8 @@
 [![FastMCP](https://img.shields.io/badge/FastMCP-4.1.3-green)](https://gofastmcp.com)
 [![ABNT Standard](https://img.shields.io/badge/ABNT-NBR%2014724%20%7C%2010520%20%7C%206023%20%7C%206022-darkred)](https://www.abnt.org.br/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-69%20passed-brightgreen)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-83%25-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-75%20passed-brightgreen)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-86%25-brightgreen)](tests/)
 [![CI/CD](https://github.com/PedroSmaxY/abnt-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/PedroSmaxY/abnt-mcp/actions/workflows/ci.yml)
 
 ---
@@ -86,16 +86,18 @@ abnt-mcp/
 
 ## 4. Especificação Técnica das Interfaces MCP
 
-O servidor expõe formalmente 16 ferramentas, 3 prompts orientados e 8 recursos canônicos sob a especificação do Model Context Protocol:
+O servidor expõe formalmente 18 ferramentas, 3 prompts orientados e 8 recursos canônicos sob a especificação do Model Context Protocol:
 
 ### 4.1. Ferramentas Operacionais (`@mcp.tool`)
 
 | Identificador | Parâmetros de Entrada | Descrição Formal |
 | :--- | :--- | :--- |
-| `init_research_spec` | `project_path: str`, `title: str`, `research_problem: str`, `general_objective: str`, `specific_objectives: list`, `methodology_summary: str`, `document_type: str = "tcc"`, ... | Inicializa o manifesto científico SDD (`abnt.spec.json` e `SPEC.md`) em 3 camadas no projeto. |
-| `audit_research_spec` | `project_path: str`, `spec_path: str?` | Audita o manuscrito contra `abnt.spec.json`, validando a entrega de cada objetivo específico (`OBJ-XX`) na Conclusão. |
+| `scaffold_academic_project` | `project_path: str`, `title: str`, `author: str`, `document_type: str = "tcc"`, `format: "typst"\|"latex"\|"markdown" = "typst"`, `sample_pdf_path: str?`, `logo_path: str?`, ... | Inicializa a árvore completa de diretórios do projeto, extrai o padrão institucional e o brasão/logotipo de um PDF modelo da faculdade e cria o documento principal compilável. |
+| `init_research_spec` | `project_path: str`, `title: str`, `research_problem: str`, `general_objective: str`, `specific_objectives: list`, `methodology_summary: str`, `sample_pdf_path: str?`, `logo_path: str?`, ... | Inicializa o manifesto científico SDD (`abnt.spec.json` e `SPEC.md`) em 3 camadas no projeto. |
+| `audit_research_spec` | `project_path: str`, `spec_path: str?` | Audita o manuscrito contra `abnt.spec.json`, validando objetivos (`OBJ-XX`), regras da instituição, ilustrações/tabelas, prontidão (`submission_readiness`) e salvando relatórios em `.abnt-mcp/`. |
 | `simulate_banca` | `project_path: str` | Simula arguição de banca examinadora com notas por eixo e cobrança direta de objetivos específicos pendentes. |
 | `check_structure` | `project_path: str`, `standard: str = "ABNT_14724"` | Analisa a conformidade dos elementos pré, textuais e pós-textuais (NBR 14724 e NBR 6022) de fontes ou PDFs. |
+| `audit_illustrations_and_tables` | `project_path: str` | Audita figuras, tabelas e quadros (chamada prévia obrigatória, `Fonte:`, caminhos de imagem, sequência e distinção `Tabela` vs `Quadro` IBGE). |
 | `validate_citations` | `project_path: str`, `bib_path: str?` | Auditoria cruzada entre texto e referências, apontando citações órfãs e violações de caixa alta. |
 | `analyze_tone` | `text: str` | Mensura o índice de rigor científico (0-100), sinalizando primeira pessoa e coloquialismos. |
 | `format_citation` | `authors: list[str]`, `year: str\|int`, `style: str`, `quote_type: str`, `page: str?`, `quote_text: str?` | Formatação de citações diretas (curtas/longas) e indiretas sob a NBR 10520:2023. |
@@ -211,13 +213,13 @@ uv run pytest -v --cov=abnt_mcp --cov-report=term-missing
 ```
 
 ```text
-============================= 69 passed in 5.40s =============================
+============================= 75 passed in 1.25s =============================
 tests/test_advisory.py (4 testes)     -> Consulta Crossref/SciELO, DOI e Simulador de Banca
 tests/test_compiler.py (4 testes)     -> Linter de ambientes, tratamento de logs e engines
 tests/test_diagnostics.py (6 testes)  -> Estrutura NBR 14724, auditoria de citações e tom científico
 tests/test_edge_cases.py (23 testes)  -> Casos de borda (paginação NBR 14724, autores compostos, localizadores, IBGE vs ABNT)
 tests/test_parsers.py (9 testes)      -> Extratores LaTeX/MD/Typst, validação de caixa alta e extração de PDF
-tests/test_sdd.py (6 testes)          -> Trava Anti-Drift SDD, NBR 6022, abnt.spec.json e objetivos na banca
+tests/test_sdd.py (12 testes)         -> Trava Anti-Drift SDD, scaffolding, PDF/logo institucional, ilustrações e relatórios
 tests/test_server.py (6 testes)       -> Registro e execução de tools, prompts e resources
 tests/test_writing.py (11 testes)     -> Citações 2023, Referências 6023, Resumo, Figuras e Tabelas
 ```
