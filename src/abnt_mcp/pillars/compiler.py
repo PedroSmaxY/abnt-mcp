@@ -124,17 +124,13 @@ def convert_markdown_to_typst(md_content: str, title: str = "Trabalho Acadêmico
     clean_md = re.sub(r"<(https?://[^>]+)>", r" \1 ", clean_md)
     clean_md = re.sub(r"<[^>]+>", "", clean_md)
 
-    # Preâmbulo Typst ABNT com margens 3-3-2-2 e numeração de páginas
+    # Preâmbulo Typst ABNT com margens 3-3-2-2 (NBR 14724)
+    # A numeração visível nasce exclusivamente na primeira folha textual
     typst_doc = f"""#set document(title: "{title}", author: "{author}")
 #set page(
   paper: "a4",
   margin: (top: 3cm, left: 3cm, bottom: 2cm, right: 2cm),
-  header: context {{
-    let p = counter(page).get().first()
-    if p > 2 [
-      #align(right)[#text(size: 10pt)[#p]]
-    ]
-  }}
+  header: none
 )
 #set text(size: 12pt, lang: "pt", region: "BR")
 #set par(justify: true, leading: 1.5em, first-line-indent: 1.25cm)
@@ -147,6 +143,15 @@ def convert_markdown_to_typst(md_content: str, title: str = "Trabalho Acadêmico
 }}
 
 """
+    pretextual_keywords = {
+        "resumo", "abstract", "sumario", "sumário", "capa", "folha de rosto",
+        "agradecimentos", "dedicatoria", "dedicatória", "epigrafe", "epígrafe",
+        "lista de figuras", "lista de tabelas", "lista de ilustrações",
+        "lista de ilustracoes", "lista de abreviaturas", "lista de siglas"
+    }
+
+    has_started_textual = False
+
     # Converte cabeçalhos
     lines = clean_md.splitlines()
     converted_lines = []
@@ -158,7 +163,25 @@ def convert_markdown_to_typst(md_content: str, title: str = "Trabalho Acadêmico
         h4 = re.match(r"^####\s+(.+)$", line)
 
         if h1:
-            converted_lines.append(f"= {h1.group(1).strip()}")
+            h1_title = h1.group(1).strip()
+            title_lower = h1_title.lower()
+            title_core = re.sub(r"^[\d\.\s]+", "", title_lower).strip()
+
+            is_pretextual = (
+                title_core in pretextual_keywords
+                or any(title_lower.startswith(pt) for pt in pretextual_keywords)
+            )
+
+            if "folha de rosto" in title_lower:
+                converted_lines.append("#counter(page).update(1)")
+
+            if not is_pretextual and not has_started_textual:
+                has_started_textual = True
+                converted_lines.append(
+                    "#set page(header: context { align(right)[#text(size: 10pt)[#counter(page).get().first()]] })"
+                )
+
+            converted_lines.append(f"= {h1_title}")
         elif h2:
             converted_lines.append(f"== {h2.group(1).strip()}")
         elif h3:

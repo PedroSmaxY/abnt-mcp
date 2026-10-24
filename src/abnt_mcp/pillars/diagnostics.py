@@ -103,12 +103,22 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
     all_content: list[str] = []
     file_count = 0
 
+    pagination_issues: list[dict[str, Any]] = []
+
     if path.is_file():
         if path.suffix.lower() == ".pdf":
-            from abnt_mcp.parsers.pdf_reader import extract_pdf_section
+            from abnt_mcp.parsers.pdf_reader import extract_pdf_section, audit_pdf_pagination
             pdf_data = extract_pdf_section(path)
             all_content.append(pdf_data["text"])
             file_count = 1
+
+            # Auditoria estrita de paginação no PDF conforme a ABNT NBR 14724 (item 5.3)
+            try:
+                pag_audit = audit_pdf_pagination(path)
+                if not pag_audit["is_compliant"]:
+                    pagination_issues = pag_audit["issues"]
+            except Exception:
+                pass
         else:
             files = [path]
             for f in files:
@@ -155,19 +165,31 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
             f"Seção '{num}. {title}' possui ponto após o último algarismo (NBR 6024 exige '{num} {title}')."
         )
 
+    # Incorpora avisos de paginação NBR 14724 se houver
+    has_critical_pagination_error = False
+    for p_iss in pagination_issues:
+        section_warnings.append(f"[Paginação NBR 14724] {p_iss['message']}")
+        if p_iss.get("severity") == "critical":
+            has_critical_pagination_error = True
+
     # Cálculo da pontuação
     total_mandatory = sum(len(items) for items in MANDATORY_ELEMENTS.values())
     found_mandatory = total_mandatory - len(missing_mandatory)
     base_score = int((found_mandatory / total_mandatory) * 100) if total_mandatory else 100
-    
-    # Penalidade por erros graves de numeração de seção
+
+    # Penalidade por erros de numeração de seção e paginação
     section_penalty = min(15, len(section_warnings) * 3)
-    final_score = max(0, base_score - section_penalty)
+    pag_penalty = 25 if has_critical_pagination_error else 0
+    final_score = max(0, base_score - section_penalty - pag_penalty)
 
     recommendations: list[str] = []
     if missing_mandatory:
         recommendations.append(
             f"Inclua os elementos obrigatórios ausentes: {', '.join(missing_mandatory)}."
+        )
+    if pagination_issues:
+        recommendations.append(
+            "Corrija os erros de paginação segundo a ABNT NBR 14724 (item 5.3): a contagem inicia na Folha de Rosto e nenhum elemento pré-textual pode conter número impresso."
         )
     if section_warnings:
         recommendations.append(
@@ -182,7 +204,7 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
             "Certifique-se de que o Resumo e o Abstract contenham de 150 a 500 palavras e de 3 a 5 palavras-chave."
         )
 
-    is_valid = len(missing_mandatory) == 0 and final_score >= 80
+    is_valid = len(missing_mandatory) == 0 and final_score >= 80 and not has_critical_pagination_error
 
     return StructureCheckResult(
         standard="NBR 14724:2011",

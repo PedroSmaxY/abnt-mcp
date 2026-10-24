@@ -314,3 +314,85 @@ def test_fastmcp_server_direct_tool_wrappers(tmp_path: Path):
         results="resultados.", conclusion="conclusão.", keywords=["A", "B", "C"]
     )
     assert "formatted_text" in res_resumo
+
+
+# ==============================================================================
+# 6. CASOS DE BORDA: AUDITORIA DE PAGINAÇÃO ABNT NBR 14724 (ITEM 5.3)
+# ==============================================================================
+
+def test_audit_pdf_pagination_compliant_tcc():
+    pdf_path = Path(r"C:\Users\pedro\Documents\Normas_ABNT\exemplo_tcc\TCC_UTFPR_Fronchetti_ABNT_Correto.pdf")
+    if pdf_path.exists():
+        from abnt_mcp.parsers.pdf_reader import audit_pdf_pagination
+        res = audit_pdf_pagination(pdf_path)
+        assert res["is_compliant"] is True
+        assert len(res["issues"]) == 0
+        assert res["first_textual_page_pdf"] == 6
+
+
+def test_audit_pdf_pagination_detects_pretextual_number(tmp_path: Path):
+    import typst
+    from abnt_mcp.parsers.pdf_reader import audit_pdf_pagination
+
+    # Gera documento com número '2' impresso indevidamente no Sumário (pré-textual)
+    typ_content = """
+    #set page(paper: "a4", margin: (top: 3cm, left: 3cm, bottom: 2cm, right: 2cm), header: none)
+    Capa
+    #pagebreak()
+    #counter(page).update(1)
+    Folha de Rosto
+    #pagebreak()
+    // Erro proposital: ativa numeração no Sumário
+    #set page(header: context { align(right)[#counter(page).get().first()] })
+    #outline(title: [SUMÁRIO])
+    #pagebreak()
+    = 1 Introdução
+    Texto da introdução.
+    """
+    typ_file = tmp_path / "bad_pretext.typ"
+    pdf_file = tmp_path / "bad_pretext.pdf"
+    typ_file.write_text(typ_content, encoding="utf-8")
+    typst.compile(typ_file, output=str(pdf_file))
+
+    res = audit_pdf_pagination(pdf_file)
+    assert res["is_compliant"] is False
+    issue_types = [i["type"] for i in res["issues"]]
+    assert "pretextual_number_visible" in issue_types
+
+
+def test_audit_pdf_pagination_detects_capa_counted(tmp_path: Path):
+    import typst
+    from abnt_mcp.parsers.pdf_reader import audit_pdf_pagination
+    from abnt_mcp.pillars.diagnostics import check_project_structure
+
+    # Gera documento onde a Capa foi contada como página 1 (sem o counter update na folha de rosto)
+    typ_content = """
+    #set page(paper: "a4", margin: (top: 3cm, left: 3cm, bottom: 2cm, right: 2cm), header: none)
+    Capa
+    #pagebreak()
+    Folha de Rosto
+    #pagebreak()
+    Resumo
+    #pagebreak()
+    #outline(title: [SUMÁRIO])
+    #pagebreak()
+    // Ativa cabeçalho mas com offset porque a capa foi contada
+    #set page(header: context { align(right)[#counter(page).get().first()] })
+    = 1 Introdução
+    Texto da introdução.
+    """
+    typ_file = tmp_path / "bad_capa_count.typ"
+    pdf_file = tmp_path / "bad_capa_count.pdf"
+    typ_file.write_text(typ_content, encoding="utf-8")
+    typst.compile(typ_file, output=str(pdf_file))
+
+    res = audit_pdf_pagination(pdf_file)
+    assert res["is_compliant"] is False
+    issue_types = [i["type"] for i in res["issues"]]
+    assert "capa_counted_in_pagination" in issue_types
+
+    # Validação via check_project_structure: deve penalizar e reprovar
+    struct_res = check_project_structure(pdf_file)
+    assert struct_res.is_valid is False
+    assert any("[Paginação NBR 14724]" in w for w in struct_res.section_warnings)
+

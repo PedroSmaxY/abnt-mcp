@@ -6,7 +6,7 @@
 [![FastMCP](https://img.shields.io/badge/FastMCP-4.1.3-green)](https://gofastmcp.com)
 [![ABNT Standard](https://img.shields.io/badge/ABNT-NBR%2014724%20%7C%2010520%20%7C%206023-darkred)](https://www.abnt.org.br/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-60%20passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-63%20passed-brightgreen)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-82%25-brightgreen)](tests/)
 [![CI/CD](https://github.com/PedroSmaxY/abnt-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/PedroSmaxY/abnt-mcp/actions/workflows/ci.yml)
 
@@ -201,11 +201,11 @@ uv run pytest -v --cov=abnt_mcp --cov-report=term-missing
 ```
 
 ```text
-============================= 60 passed in 16.83s =============================
+============================= 63 passed in 18.57s =============================
 tests/test_advisory.py (4 testes)     -> Consulta Crossref/SciELO, DOI e Simulador de Banca
 tests/test_compiler.py (4 testes)     -> Linter de ambientes, tratamento de logs e engines
 tests/test_diagnostics.py (6 testes)  -> Estrutura NBR 14724, auditoria de citações e tom científico
-tests/test_edge_cases.py (20 testes)  -> Casos de borda (autores compostos, localizadores, IBGE vs ABNT, desambiguação morfológica)
+tests/test_edge_cases.py (23 testes)  -> Casos de borda (paginação NBR 14724, autores compostos, localizadores, IBGE vs ABNT)
 tests/test_parsers.py (9 testes)      -> Extratores LaTeX/MD/Typst, validação de caixa alta e extração de PDF
 tests/test_server.py (6 testes)       -> Registro e execução de tools, prompts e resources
 tests/test_writing.py (11 testes)     -> Citações 2023, Referências 6023, Resumo, Figuras e Tabelas
@@ -220,14 +220,14 @@ A suíte assegura **82% de cobertura global** no núcleo do sistema:
 | `abnt_mcp.config` | 13 | **100%** | Regexes normativas, meses ABNT e léxico impessoal |
 | `abnt_mcp.models` | 72 | **100%** | Esquemas Pydantic e validação tipada de dados |
 | `abnt_mcp.parsers.citations` | 81 | **91%** | Extração e auditoria de citações em LaTeX, MD e Typst |
-| `abnt_mcp.pillars.diagnostics` | 137 | **89%** | Validação NBR 14724, auditoria de `.bib` e rigor científico |
+| `abnt_mcp.pillars.diagnostics` | 152 | **89%** | Validação NBR 14724, auditoria de `.bib`, tom científico e paginação |
 | `abnt_mcp.pillars.writing` | 204 | **87%** | NBR 10520:2023, NBR 6023:2018, NBR 6028, tabelas IBGE e figuras |
 | `abnt_mcp.server` | 93 | **82%** | Protocolo FastMCP (13 tools, 3 prompts, 6 resources) |
 | `abnt_mcp.pillars.advisory` | 131 | **80%** | Consultas Crossref, SciELO, BibTeX por DOI e banca |
 | `abnt_mcp.parsers.bibtex` | 92 | **80%** | Sanitização, normalização e deduplicação de entradas |
-| `abnt_mcp.parsers.pdf_reader` | 40 | **70%** | Extração de sumário, paginação e corpo de documentos PDF |
-| `abnt_mcp.pillars.compiler` | 211 | **64%** | Compilação nativa Typst, LaTeX abnTeX2 e Pandoc |
-| **Total do Ecossistema** | **1107** | **82%** | **60 testes aprovados** |
+| `abnt_mcp.parsers.pdf_reader` | 98 | **80%** | Auditoria forense de paginação NBR 14724 e extração de PDF |
+| `abnt_mcp.pillars.compiler` | 222 | **66%** | Compilação nativa Typst, LaTeX abnTeX2 e Pandoc |
+| **Total do Ecossistema** | **1191** | **82%** | **63 testes aprovados** |
 
 ### 7.3 Esteira de Integração Contínua (GitHub Actions)
 

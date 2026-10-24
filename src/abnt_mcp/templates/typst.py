@@ -7,16 +7,11 @@ TYPST_TEMPLATE = r"""// ========================================================
 #set document(title: "Título do Trabalho Acadêmico", author: "Nome do Autor")
 
 // Configurações Físicas: Papel A4 e Margens 3-3-2-2 (Superior 3cm, Esquerda 3cm, Inferior 2cm, Direita 2cm)
+// NBR 14724: Elementos pré-textuais NÃO possuem numeração visível
 #set page(
   paper: "a4",
   margin: (top: 3cm, left: 3cm, bottom: 2cm, right: 2cm),
-  header: context {
-    // A numeração de página só aparece a partir da parte textual (Introdução)
-    let page_num = counter(page).get().first()
-    if page_num > 3 [
-      #align(right)[#text(size: 10pt)[#page_num]]
-    ]
-  }
+  header: none,
 )
 
 // Tipografia: Arial ou Times New Roman, Tamanho 12pt, Espaçamento 1.5x, Recuo 1.25cm
@@ -52,6 +47,9 @@ TYPST_TEMPLATE = r"""// ========================================================
 ]
 
 #pagebreak()
+
+// ABNT NBR 14724 (item 5.3): A contagem inicia sequencialmente na Folha de Rosto (Folha 1), mas não é numerada.
+#counter(page).update(1)
 
 // Folha de Rosto (Obrigatório)
 #align(center)[
@@ -93,8 +91,13 @@ Este trabalho sintetiza o desenvolvimento de ferramentas baseadas no Model Conte
 #pagebreak()
 
 // -----------------------------------------------------------------------------
-// ELEMENTOS TEXTUAIS
+// ELEMENTOS TEXTUAIS (Início da numeração visível - NBR 14724, item 5.3)
 // -----------------------------------------------------------------------------
+#set page(
+  header: context {
+    align(right)[#text(size: 10pt)[#counter(page).get().first()]]
+  }
+)
 #set par(first-line-indent: 1.25cm)
 
 = Introdução

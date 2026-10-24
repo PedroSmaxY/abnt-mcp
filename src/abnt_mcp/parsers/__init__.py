@@ -14,7 +14,7 @@ from abnt_mcp.parsers.bibtex import (
     append_entry_if_absent,
     normalize_abnt_month,
 )
-from abnt_mcp.parsers.pdf_reader import extract_pdf_section
+from abnt_mcp.parsers.pdf_reader import extract_pdf_section, audit_pdf_pagination
 
 __all__ = [
     "extract_citations_from_latex",
@@ -28,4 +28,5 @@ __all__ = [
     "append_entry_if_absent",
     "normalize_abnt_month",
     "extract_pdf_section",
+    "audit_pdf_pagination",
 ]
