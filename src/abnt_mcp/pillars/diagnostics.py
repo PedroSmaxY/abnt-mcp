@@ -18,6 +18,7 @@ from abnt_mcp.config import (
     NORMATIVE_RULES,
 )
 from abnt_mcp.models import (
+    DiagnosticItem,
     StructureCheckResult,
     ToneAnalysisResult,
     ToneIssue,
@@ -187,6 +188,7 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
             elements_found.add(elem_name)
 
     rule_violations: list[dict[str, str]] = []
+    diagnostics: list[DiagnosticItem] = []
 
     # Checa obrigatórios
     missing_mandatory: list[str] = []
@@ -194,12 +196,22 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
         for item in items:
             if item not in elements_found:
                 missing_mandatory.append(f"{item} ({category})")
+                msg = f"Elemento obrigatório ausente: '{item}' ({category})."
                 rule_violations.append({
                     "rule_id": structure_rule_id,
                     "standard": NORMATIVE_RULES[structure_rule_id]["standard"],
                     "severity": NORMATIVE_RULES[structure_rule_id]["severity"],
-                    "message": f"Elemento obrigatório ausente: '{item}' ({category}).",
+                    "message": msg,
                 })
+                diagnostics.append(DiagnosticItem(
+                    rule_id=structure_rule_id,
+                    nature="normative",
+                    severity="error",
+                    confidence="high",
+                    message=msg,
+                    suggestion=f"Adicione a seção/elemento '{item}' conforme exigido pela {NORMATIVE_RULES[structure_rule_id]['standard']}.",
+                    human_review_required=False,
+                ))
 
     # Checa opcionais presentes
     optional_present = [elem for elem in OPTIONAL_ELEMENTS if elem in elements_found]
@@ -216,18 +228,37 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
             "severity": NORMATIVE_RULES["NBR6024-R01"]["severity"],
             "message": msg,
         })
+        diagnostics.append(DiagnosticItem(
+            rule_id="NBR6024-R01",
+            nature="normative",
+            severity="warning",
+            confidence="high",
+            message=msg,
+            suggestion=f"Substitua '{num}. {title}' por '{num} {title}'.",
+            human_review_required=False,
+        ))
 
     # Incorpora avisos de paginação NBR 14724 se houver
     has_critical_pagination_error = False
     for p_iss in pagination_issues:
         section_warnings.append(f"[Paginação NBR 14724] {p_iss['message']}")
+        sev_str = str(p_iss.get("severity", "critical"))
         rule_violations.append({
             "rule_id": "NBR14724-R02",
             "standard": NORMATIVE_RULES["NBR14724-R02"]["standard"],
-            "severity": str(p_iss.get("severity", "critical")),
+            "severity": sev_str,
             "message": p_iss["message"],
         })
-        if p_iss.get("severity") == "critical":
+        diagnostics.append(DiagnosticItem(
+            rule_id="NBR14724-R02",
+            nature="normative",
+            severity="critical" if sev_str == "critical" else "warning",
+            confidence="high",
+            message=p_iss["message"],
+            suggestion="Suprima a numeração impressa nos elementos pré-textuais e inicie a contagem na Folha de Rosto.",
+            human_review_required=False,
+        ))
+        if sev_str == "critical":
             has_critical_pagination_error = True
 
     # Cálculo da pontuação
@@ -274,6 +305,7 @@ def check_project_structure(project_path: str | Path, standard: str = "ABNT_1472
         elements_found=sorted(list(elements_found)),
         section_warnings=section_warnings[:10],
         rule_violations=rule_violations,
+        diagnostics=diagnostics,
         recommendations=recommendations,
     )
 
@@ -329,6 +361,44 @@ def audit_citations_and_references(
     # Entradas no .bib nunca citadas
     unused_references = sorted(list(all_bib_keys - all_cited_keys))
 
+    diagnostics: list[DiagnosticItem] = []
+    for uv in uppercase_violations:
+        diagnostics.append(DiagnosticItem(
+            rule_id="NBR10520-R01",
+            nature="normative",
+            severity="error",
+            confidence="high",
+            message=f"Citação em CAIXA ALTA entre parênteses '{uv.get('match')}' viola a ABNT NBR 10520:2023.",
+            suggestion="Converta o sobrenome dentro dos parênteses para caixa mista (ex: '(Silva, 2023)').",
+            file=str(uv.get("file", "")),
+            line=int(uv["line"]) if isinstance(uv.get("line"), int) else None,
+            human_review_required=False,
+        ))
+
+    for oc in orphan_citations:
+        diagnostics.append(DiagnosticItem(
+            rule_id="NBR10520-R02",
+            nature="normative",
+            severity="error",
+            confidence="high",
+            message=f"Citação órfã '{oc.get('key')}' no texto sem entrada correspondente no arquivo .bib.",
+            suggestion=f"Adicione a entrada '@...{{{oc.get('key')}, ...}}' ao arquivo .bib ou corrija a chave citada.",
+            file=str(oc.get("file", "")),
+            line=int(oc["line"]) if isinstance(oc.get("line"), int) else None,
+            human_review_required=False,
+        ))
+
+    for ur in unused_references:
+        diagnostics.append(DiagnosticItem(
+            rule_id="NBR10520-R02",
+            nature="normative",
+            severity="warning",
+            confidence="high",
+            message=f"A referência '{ur}' consta no arquivo .bib mas nunca foi citada no texto.",
+            suggestion="Cite a obra no corpo do texto ou remova-a do arquivo .bib antes da entrega final.",
+            human_review_required=False,
+        ))
+
     is_consistent = len(orphan_citations) == 0 and len(uppercase_violations) == 0
 
     return CitationValidationResult(
@@ -337,6 +407,7 @@ def audit_citations_and_references(
         orphan_citations=orphan_citations,
         unused_references=unused_references,
         uppercase_violations=uppercase_violations,
+        diagnostics=diagnostics,
         is_consistent=is_consistent,
     )
 
@@ -458,12 +529,27 @@ def analyze_scientific_tone(text: str) -> ToneAnalysisResult:
         + ("O texto necessita de ajustes de impessoalidade e objetividade." if not is_acceptable else "Texto com ótimo rigor científico.")
     )
 
+    tone_diagnostics: list[DiagnosticItem] = [
+        DiagnosticItem(
+            rule_id=f"HEURISTIC-TONE-{iss.category.upper()}",
+            nature="heuristic",
+            severity="warning",
+            confidence="medium",
+            message=f"[{iss.category}] Termo ou trecho detectado: '{iss.term}'.",
+            suggestion=iss.suggestion,
+            line=iss.line_number,
+            human_review_required=True,
+        )
+        for iss in issues
+    ]
+
     return ToneAnalysisResult(
         score=score,
         is_acceptable=is_acceptable,
         total_words=total_words,
         issues_count=len(issues),
         issues=issues,
+        diagnostics=tone_diagnostics,
         summary=summary,
         suggested_rewrites=suggested_rewrites,
     )
