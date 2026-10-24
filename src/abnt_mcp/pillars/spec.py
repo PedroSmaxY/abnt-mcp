@@ -10,10 +10,11 @@ científico `abnt.spec.json` / `SPEC.md` em três camadas:
 from __future__ import annotations
 import json
 import re
+import shutil
 from pathlib import Path
 from typing import Any, Literal
 
-from abnt_mcp.config import NORMATIVE_RULES
+from abnt_mcp.config import NORMATIVE_RULES, get_current_year
 from abnt_mcp.models import (
     ResearchSpec,
     NormativeProfile,
@@ -22,7 +23,9 @@ from abnt_mcp.models import (
     ObjectiveAuditItem,
     ChapterAuditItem,
     SpecAuditResult,
+    ProjectScaffoldResult,
 )
+from abnt_mcp.parsers.pdf_reader import extract_institutional_pattern_from_pdf
 from abnt_mcp.pillars.diagnostics import (
     check_project_structure,
     audit_citations_and_references,
@@ -56,6 +59,10 @@ def render_spec_markdown(spec: ResearchSpec) -> str:
         f"- **Tipo Documental:** `{spec.profile.document_type.upper()}`",
         f"- **Norma Estrutural:** `{spec.profile.standard}`",
         f"- **Instituição / Periódico:** {spec.profile.institution or 'Padrão Geral ABNT'}",
+        f"- **Curso / Programa:** {spec.profile.course or 'Não informado'}",
+        f"- **Orientador(a):** {spec.profile.advisor or 'Não informado'}",
+        f"- **Logotipo na Capa:** {spec.profile.cover_logo_path if spec.profile.has_cover_logo else 'Não configurado'}",
+        f"- **Rótulo de Conclusão:** `{spec.profile.conclusion_label}`",
         f"- **Meta Mínima de Referências (`.bib`):** {spec.profile.min_references}",
         f"- **Meta de Rigor Científico:** {spec.profile.min_scientific_tone_score}/100",
         "",
@@ -110,16 +117,44 @@ def init_project_spec(
     document_type: Literal["tcc", "dissertacao", "tese", "artigo"] = "tcc",
     author: str | None = None,
     institution: str | None = None,
+    course: str | None = None,
+    advisor: str | None = None,
     min_references: int | None = None,
     planned_chapters: list[dict[str, Any]] | None = None,
+    sample_pdf_path: str | Path | None = None,
+    logo_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """
     Inicializa e persiste o manifesto `abnt.spec.json` e o documento `SPEC.md`
-    no diretório do projeto acadêmico.
+    no diretório do projeto acadêmico, com suporte opcional a aprendizado de
+    padrão institucional via PDF de exemplo (`sample_pdf_path`) e cópia de logotipo (`logo_path`).
     """
     path = Path(project_path)
     target_dir = path if (path.exists() and path.is_dir()) else (path.parent if path.suffix else path)
     target_dir.mkdir(parents=True, exist_ok=True)
+    figuras_dir = target_dir / "figuras"
+
+    inferred_profile: dict[str, Any] | None = None
+    if sample_pdf_path:
+        inferred_profile = extract_institutional_pattern_from_pdf(
+            pdf_path=sample_pdf_path,
+            output_assets_dir=figuras_dir,
+        )
+
+    effective_logo_path = inferred_profile.get("cover_logo_path") if inferred_profile else None
+    has_cover_logo = bool(inferred_profile.get("has_cover_logo")) if inferred_profile else False
+
+    if logo_path:
+        src_logo = Path(logo_path)
+        if not src_logo.is_file():
+            raise FileNotFoundError(f"Arquivo de logotipo não encontrado: {src_logo}")
+        figuras_dir.mkdir(parents=True, exist_ok=True)
+        ext = src_logo.suffix.lower() or ".png"
+        dest_logo = figuras_dir / f"logo_instituicao{ext}"
+        if src_logo.resolve() != dest_logo.resolve():
+            shutil.copy2(src_logo, dest_logo)
+        has_cover_logo = True
+        effective_logo_path = f"figuras/{dest_logo.name}"
 
     standard: Literal["ABNT_14724", "ABNT_6022"] = (
         "ABNT_6022" if document_type == "artigo" else "ABNT_14724"
@@ -144,17 +179,53 @@ def init_project_spec(
             )
         )
 
-    raw_chapters = (
-        planned_chapters
-        if planned_chapters is not None
-        else (DEFAULT_PLANNED_CHAPTERS_ARTIGO if document_type == "artigo" else DEFAULT_PLANNED_CHAPTERS_TCC)
+    effective_conclusion_label = (
+        inferred_profile.get("conclusion_label", "Conclusão")
+        if inferred_profile
+        else ("Considerações Finais" if document_type == "artigo" else "Conclusão")
     )
+
+    if planned_chapters is not None:
+        raw_chapters = planned_chapters
+    elif document_type == "artigo":
+        raw_chapters = [dict(c) for c in DEFAULT_PLANNED_CHAPTERS_ARTIGO]
+    else:
+        raw_chapters = [dict(c) for c in DEFAULT_PLANNED_CHAPTERS_TCC]
+        if raw_chapters and raw_chapters[-1]["number"] == "5":
+            raw_chapters[-1]["title"] = effective_conclusion_label
+
     parsed_chapters = [PlannedChapter(**ch) for ch in raw_chapters]
+
+    effective_institution = institution or (inferred_profile.get("institution") if inferred_profile else None)
+    effective_course = course or (inferred_profile.get("course") if inferred_profile else None)
+    effective_department = inferred_profile.get("department") if inferred_profile else None
+    effective_advisor = advisor or (inferred_profile.get("advisor") if inferred_profile else None)
+    cover_header_lines = (
+        list(inferred_profile.get("cover_header_lines", []))
+        if inferred_profile
+        else ([effective_institution] if effective_institution else [])
+    )
+    preamble_text = inferred_profile.get("preamble_text") if inferred_profile else None
+    required_pre_textual = (
+        list(inferred_profile.get("required_pre_textual", []))
+        if inferred_profile
+        else []
+    )
 
     profile = NormativeProfile(
         document_type=document_type,
         standard=standard,
-        institution=institution,
+        institution=effective_institution,
+        course=effective_course,
+        department=effective_department,
+        advisor=effective_advisor,
+        cover_header_lines=cover_header_lines,
+        has_cover_logo=has_cover_logo,
+        cover_logo_path=effective_logo_path,
+        preamble_text=preamble_text,
+        required_pre_textual=required_pre_textual,
+        conclusion_label=effective_conclusion_label,
+        inferred_from_pdf=bool(inferred_profile),
         min_references=effective_min_refs,
     )
 
@@ -183,11 +254,442 @@ def init_project_spec(
         "spec_json_path": str(spec_json_path),
         "spec_md_path": str(spec_md_path),
         "spec": spec.model_dump(),
+        "inferred_institutional_profile": inferred_profile,
         "message": (
             f"Especificação SDD inicializada com sucesso ({len(parsed_objectives)} objetivos "
             f"específicos e {len(parsed_chapters)} capítulos planejados sob {standard})."
         ),
     }
+
+
+def _render_scaffolded_typst(spec: ResearchSpec) -> str:
+    """Gera um manuscrito Typst completo e compilável customizado com o perfil institucional e SDD."""
+    year = get_current_year()
+    header_lines = spec.profile.cover_header_lines or [
+        spec.profile.institution or "UNIVERSIDADE FEDERAL",
+        spec.profile.course or "CURSO DE GRADUAÇÃO",
+    ]
+    header_typst = "\n  \n  ".join(f"*{ln.upper()}*" for ln in header_lines)
+    logo_block = ""
+    if spec.profile.has_cover_logo and spec.profile.cover_logo_path:
+        logo_block = f'  #image("{spec.profile.cover_logo_path}", width: 3cm)\n  #v(0.5cm)\n'
+
+    preamble = spec.profile.preamble_text or (
+        f"Trabalho de Conclusão de Curso apresentado à {spec.profile.institution or 'Instituição'} "
+        "como requisito parcial para obtenção do título acadêmico."
+    )
+    advisor_line = f"Orientador(a): {spec.profile.advisor}" if spec.profile.advisor else "Orientador(a): Prof. Dr. Nome do Orientador"
+    concl_title = spec.profile.conclusion_label.upper()
+
+    return f"""// =========================================================================
+// PROJETO ACADÊMICO ABNT (NBR 14724 / NBR 10520:2023 / NBR 6023:2018)
+// Gerado via scaffold_academic_project (SDD)
+// =========================================================================
+
+#set document(title: "{spec.title}", author: "{spec.author or 'Autor'}")
+#set text(font: ("Times New Roman", "Liberation Serif", "Linux Libertine"), size: 12pt, lang: "pt", region: "BR")
+
+#set page(
+  paper: "a4",
+  margin: (top: 3cm, left: 3cm, right: 2cm, bottom: 2cm),
+  numbering: none
+)
+
+#set par(justify: true, leading: 0.9em, first-line-indent: 1.25cm)
+#set heading(numbering: "1.1")
+
+// --- CAPA (Não contada na paginação - NBR 14724 item 5.3) ---
+#align(center)[
+{logo_block}  {header_typst}
+
+  #v(3cm)
+  *{(spec.author or 'AUTOR DO TRABALHO').upper()}*
+
+  #v(4cm)
+  #text(size: 14pt, weight: "bold")[{spec.title.upper()}]
+
+  #v(1fr)
+  *BRASIL* \\
+  *{year}*
+]
+#pagebreak()
+
+// --- FOLHA DE ROSTO (Inicia a contagem na página 1, sem exibir número) ---
+#counter(page).update(1)
+
+#align(center)[
+  *{(spec.author or 'AUTOR DO TRABALHO').upper()}*
+
+  #v(4cm)
+  #text(size: 14pt, weight: "bold")[{spec.title.upper()}]
+
+  #v(3cm)
+  #align(right)[
+    #block(width: 8cm)[
+      #set par(leading: 0.65em, first-line-indent: 0cm)
+      #text(size: 10pt)[
+        {preamble}
+        
+        {advisor_line}
+      ]
+    ]
+  ]
+
+  #v(1fr)
+  *BRASIL* \\
+  *{year}*
+]
+#pagebreak()
+
+// --- RESUMO (NBR 6028:2021) ---
+#align(center)[*RESUMO*]
+#v(1cm)
+#par(first-line-indent: 0cm, leading: 0.65em)[
+  {spec.general_objective} A metodologia adotada consiste em: {spec.methodology_summary} Conclui-se que a estrutura orientada a especificações assegura rastreabilidade normativa e metodológica.
+  
+  #v(0.5cm)
+  *Palavras-chave:* ABNT; pesquisa científica; metodologia; especificação.
+]
+#pagebreak()
+
+// --- ABSTRACT ---
+#align(center)[*ABSTRACT*]
+#v(1cm)
+#par(first-line-indent: 0cm, leading: 0.65em)[
+  This academic work investigates the proposed research problem through a spec-driven methodology. Results demonstrate compliance with technical standards.
+  
+  #v(0.5cm)
+  *Keywords:* ABNT; scientific research; methodology; specification.
+]
+#pagebreak()
+
+// --- SUMÁRIO (NBR 6027:2012) ---
+#align(center)[*SUMÁRIO*]
+#v(1cm)
+#outline(title: none, indent: auto)
+#pagebreak()
+
+// =========================================================================
+// ELEMENTOS TEXTUAIS (Exibe numeração arábica no canto superior direito)
+// =========================================================================
+#set page(
+  header: align(right, context counter(page).display("1"))
+)
+
+= INTRODUÇÃO
+{spec.research_problem} O objetivo geral deste estudo consiste em: {spec.general_objective} Segundo @silva2023, a padronização normativa eleva a qualidade da comunicação científica.
+
+= FUNDAMENTAÇÃO TEÓRICA
+Desenvolvimento do referencial teórico vinculado aos objetivos específicos ({', '.join(o.id for o in spec.specific_objectives)}) conforme @silva2023.
+
+= METODOLOGIA
+{spec.methodology_summary}
+
+= RESULTADOS E DISCUSSÃO
+Apresentação e discussão analítica dos resultados alcançados em relação aos termos-chave ({', '.join(k for o in spec.specific_objectives for k in o.keywords[:2])}).
+
+= {concl_title}
+Retomada dos objetivos específicos ({', '.join(k for o in spec.specific_objectives for k in o.keywords[:2])}) demonstrando o atendimento integral da especificação científica.
+
+// =========================================================================
+// ELEMENTOS PÓS-TEXTUAIS (NBR 6023:2018)
+// =========================================================================
+#pagebreak()
+#bibliography("referencias.bib", title: "REFERÊNCIAS", style: "associacao-brasileira-de-normas-tecnicas")
+"""
+
+
+def _render_scaffolded_latex(spec: ResearchSpec) -> str:
+    """Gera um manuscrito LaTeX (abnTeX2) customizado com o perfil institucional e SDD."""
+    year = get_current_year()
+    inst = spec.profile.institution or "UNIVERSIDADE FEDERAL"
+    advisor = spec.profile.advisor or "Prof. Dr. Nome do Orientador"
+    preamble = spec.profile.preamble_text or (
+        f"Trabalho de Conclusão de Curso apresentado à {inst} como requisito parcial para obtenção do grau acadêmico."
+    )
+    logo_cmd = ""
+    if spec.profile.has_cover_logo and spec.profile.cover_logo_path:
+        logo_cmd = f"% Logotipo Institucional na Capa\n% \\includegraphics[width=3cm]{{{spec.profile.cover_logo_path}}}\n"
+
+    concl_title = spec.profile.conclusion_label
+
+    return f"""\\documentclass[12pt,openright,oneside,a4paper,english,brazil]{{abntex2}}
+\\usepackage[utf8]{{inputenc}}
+\\usepackage[T1]{{fontenc}}
+\\usepackage{{graphicx}}
+\\usepackage{{booktabs}}
+\\usepackage[brazilian,hyperpageref]{{backref}}
+\\usepackage[alf]{{abntex2cite}}
+
+{logo_cmd}\\titulo{{{spec.title}}}
+\\autor{{{spec.author or 'Autor do Trabalho'}}}
+\\local{{Brasil}}
+\\data{{{year}}}
+\\orientador{{{advisor}}}
+\\instituicao{{{inst}}}
+\\tipotrabalho{{Trabalho de Conclusão de Curso}}
+\\preambulo{{{preamble}}}
+
+\\begin{{document}}
+\\imprimircapa
+\\imprimirfolhaderosto*
+
+\\begin{{resumo}}
+{spec.general_objective} Metodologia: {spec.methodology_summary}
+
+\\vspace{{\\onelineskip}}
+\\noindent
+\\textbf{{Palavras-chave}}: ABNT; pesquisa científica; especificação.
+\\end{{resumo}}
+
+\\begin{{resumo}}[Abstract]
+\\begin{{otherlanguage*}}{{english}}
+This study addresses the research problem using a spec-driven academic methodology.
+
+\\vspace{{\\onelineskip}}
+\\noindent
+\\textbf{{Keywords}}: ABNT; scientific research; specification.
+\\end{{otherlanguage*}}
+\\end{{resumo}}
+
+\\pdfbookmark[0]{{\\contentsname}}{{toc}}
+\\tableofcontents*
+\\cleardoublepage
+
+\\textual
+\\pagestyle{{simple}}
+
+\\chapter{{Introdução}}
+{spec.research_problem} Objetivo geral: {spec.general_objective} Conforme \\cite{{silva2023}}, o rigor normativo fortalece a produção científica.
+
+\\chapter{{Fundamentação Teórica}}
+Discussão teórica dos objetivos ({', '.join(o.id for o in spec.specific_objectives)}) segundo \\citeonline{{silva2023}}.
+
+\\chapter{{Metodologia}}
+{spec.methodology_summary}
+
+\\chapter{{Resultados e Discussão}}
+Análise empírica contemplando os conceitos ({', '.join(k for o in spec.specific_objectives for k in o.keywords[:2])}).
+
+\\chapter{{{concl_title}}}
+Síntese conclusiva respondendo aos objetivos específicos ({', '.join(k for o in spec.specific_objectives for k in o.keywords[:2])}).
+
+\\postextual
+\\bibliography{{referencias}}
+\\end{{document}}
+"""
+
+
+def _render_scaffolded_markdown(spec: ResearchSpec) -> str:
+    """Gera um manuscrito Markdown (Pandoc) customizado com o perfil institucional e SDD."""
+    year = get_current_year()
+    inst = spec.profile.institution or "UNIVERSIDADE FEDERAL"
+    advisor = spec.profile.advisor or "Prof. Dr. Nome do Orientador"
+    preamble = spec.profile.preamble_text or (
+        f"Trabalho de Conclusão de Curso apresentado à {inst} como requisito parcial para obtenção do título acadêmico."
+    )
+    logo_md = ""
+    if spec.profile.has_cover_logo and spec.profile.cover_logo_path:
+        logo_md = f"![Logotipo Institucional]({spec.profile.cover_logo_path})\n\n"
+    concl_title = spec.profile.conclusion_label
+
+    return f"""---
+title: "{spec.title}"
+author: "{spec.author or 'Autor do Trabalho'}"
+date: "{year}"
+institution: "{inst}"
+advisor: "{advisor}"
+lang: pt-BR
+bibliography: referencias.bib
+---
+
+<!-- CAPA -->
+{logo_md}**{inst}**
+
+**{spec.author or 'Autor do Trabalho'}**
+
+# {spec.title}
+
+<!-- FOLHA DE ROSTO -->
+{preamble}
+Orientador(a): {advisor}
+
+# Resumo {{.unnumbered}}
+
+{spec.general_objective} Metodologia: {spec.methodology_summary}
+
+**Palavras-chave:** ABNT; pesquisa científica; especificação.
+
+# Abstract {{.unnumbered}}
+
+This academic work addresses the proposed research problem with a spec-driven methodology.
+
+**Keywords:** ABNT; scientific research; specification.
+
+# Sumário {{.unnumbered}}
+
+1. Introdução
+2. Fundamentação Teórica
+3. Metodologia
+4. Resultados e Discussão
+5. {concl_title}
+
+# 1 Introdução
+
+{spec.research_problem} Objetivo geral: {spec.general_objective} Segundo [@silva2023], a padronização assegura rastreabilidade científica.
+
+# 2 Fundamentação Teórica
+
+Desenvolvimento conceitual dos objetivos ({', '.join(o.id for o in spec.specific_objectives)}) com base na literatura [@silva2023].
+
+# 3 Metodologia
+
+{spec.methodology_summary}
+
+# 4 Resultados e Discussão
+
+Análise dos resultados obtidos frente aos conceitos-chave ({', '.join(k for o in spec.specific_objectives for k in o.keywords[:2])}).
+
+# 5 {concl_title}
+
+Síntese final respondendo aos objetivos específicos ({', '.join(k for o in spec.specific_objectives for k in o.keywords[:2])}).
+
+# Referências {{.unnumbered}}
+"""
+
+
+def scaffold_project(
+    project_path: str | Path,
+    title: str,
+    author: str,
+    document_type: Literal["tcc", "dissertacao", "tese", "artigo"] = "tcc",
+    format: Literal["typst", "latex", "markdown"] = "typst",
+    institution: str | None = None,
+    course: str | None = None,
+    advisor: str | None = None,
+    research_problem: str | None = None,
+    general_objective: str | None = None,
+    specific_objectives: list[dict[str, Any]] | None = None,
+    methodology_summary: str | None = None,
+    sample_pdf_path: str | Path | None = None,
+    logo_path: str | Path | None = None,
+    overwrite: bool = False,
+) -> ProjectScaffoldResult:
+    """
+    Cria a estrutura completa de diretórios e arquivos de um projeto acadêmico SDD:
+    - Diretórios: `capitulos/`, `figuras/`, `tabelas/`, `anexos/`, `apendices/`, `.abnt-mcp/`.
+    - Extrai automaticamente o padrão institucional e o brasão/logotipo da capa caso `sample_pdf_path` seja fornecido.
+    - Copia o logotipo para `figuras/logo_instituicao.*` caso `logo_path` seja fornecido.
+    - Inicializa `abnt.spec.json` e `SPEC.md`.
+    - Cria `referencias.bib` e o arquivo principal (`main.typ`, `main.tex` ou `main.md`) pronto para compilação.
+    """
+    target_dir = Path(project_path)
+    ext_map = {"typst": ".typ", "latex": ".tex", "markdown": ".md"}
+    ext = ext_map[format]
+    main_file = target_dir / f"main{ext}"
+    spec_json_file = target_dir / "abnt.spec.json"
+
+    if not overwrite and (main_file.exists() or spec_json_file.exists()):
+        raise FileExistsError(
+            f"O diretório '{target_dir}' já contém um projeto acadêmico inicializado "
+            f"('{main_file.name}' ou 'abnt.spec.json'). Use overwrite=True para sobrescrever."
+        )
+
+    subdirs = ["capitulos", "figuras", "tabelas", "anexos", "apendices", ".abnt-mcp"]
+    for sd in subdirs:
+        (target_dir / sd).mkdir(parents=True, exist_ok=True)
+
+    eff_problem = research_problem or f"Qual a contribuição acadêmica e empírica do estudo sobre {title}?"
+    eff_general = general_objective or f"Analisar e desenvolver uma investigação sistemática sobre {title}."
+    eff_methodology = methodology_summary or (
+        "Pesquisa exploratória e descritiva com revisão bibliográfica sistematizada e análise documental."
+    )
+    eff_objectives = specific_objectives or [
+        {
+            "id": "OBJ-01",
+            "description": "Mapear o referencial teórico e as normas técnicas aplicáveis ao tema.",
+            "keywords": ["referencial", "normas", "padronização"],
+            "target_section": "Fundamentação Teórica",
+        },
+        {
+            "id": "OBJ-02",
+            "description": "Avaliar os resultados obtidos frente ao problema de pesquisa proposto.",
+            "keywords": ["resultados", "avaliação", "especificação"],
+            "target_section": "Resultados e Discussão",
+        },
+    ]
+
+    spec_res = init_project_spec(
+        project_path=target_dir,
+        title=title,
+        research_problem=eff_problem,
+        general_objective=eff_general,
+        specific_objectives=eff_objectives,
+        methodology_summary=eff_methodology,
+        document_type=document_type,
+        author=author,
+        institution=institution,
+        course=course,
+        advisor=advisor,
+        sample_pdf_path=sample_pdf_path,
+        logo_path=logo_path,
+    )
+    spec = ResearchSpec(**spec_res["spec"])
+
+    bib_file = target_dir / "referencias.bib"
+    bib_content = """@article{silva2023,
+  author  = {Silva, Maria Aparecida and Santos, João Carlos},
+  title   = {Padronização Normativa e Rastreabilidade Científica em Manuscritos Acadêmicos},
+  journal = {Revista Brasileira de Metodologia Científica},
+  year    = {2023},
+  volume  = {12},
+  number  = {2},
+  pages   = {45--62}
+}
+"""
+    bib_file.write_text(bib_content, encoding="utf-8")
+
+    if format == "typst":
+        main_content = _render_scaffolded_typst(spec)
+    elif format == "latex":
+        main_content = _render_scaffolded_latex(spec)
+    else:
+        main_content = _render_scaffolded_markdown(spec)
+
+    main_file.write_text(main_content, encoding="utf-8")
+
+    intro_chapter = target_dir / "capitulos" / f"01-introducao{ext}"
+    intro_chapter.write_text(
+        f"% Capítulo 1 - Introdução ({title})\n{eff_problem}\n",
+        encoding="utf-8",
+    )
+
+    created_files = [
+        str(main_file),
+        str(bib_file),
+        spec_res["spec_json_path"],
+        spec_res["spec_md_path"],
+        str(intro_chapter),
+    ]
+    if spec.profile.cover_logo_path:
+        created_files.append(str(target_dir / spec.profile.cover_logo_path))
+
+    return ProjectScaffoldResult(
+        success=True,
+        project_path=str(target_dir),
+        format=format,
+        main_file=str(main_file),
+        bib_file=str(bib_file),
+        spec_json_path=spec_res["spec_json_path"],
+        spec_md_path=spec_res["spec_md_path"],
+        cover_logo_path=spec.profile.cover_logo_path,
+        created_files=created_files,
+        inferred_institutional_profile=spec_res.get("inferred_institutional_profile"),
+        message=(
+            f"Projeto acadêmico ({document_type.upper()}) inicializado em '{target_dir}' "
+            f"no formato {format.upper()} com especificação SDD completa."
+        ),
+    )
 
 
 def load_project_spec(project_path: str | Path, spec_path: str | Path | None = None) -> tuple[ResearchSpec, Path]:

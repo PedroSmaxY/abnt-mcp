@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 import re
+import struct
+import zlib
 from pathlib import Path
 from typing import Any
 import pypdf
@@ -200,4 +202,224 @@ def audit_pdf_pagination(pdf_path: str | Path) -> dict[str, Any]:
         "first_textual_page_pdf": (first_textual_page_idx + 1) if first_textual_page_idx is not None else None,
         "first_textual_title": first_textual_title,
         "issues": issues,
+    }
+
+
+def _encode_rgb_png_bytes(width: int, height: int, rgb_bytes: bytes) -> bytes:
+    """Codifica bytes RGB puros em um arquivo PNG válido usando apenas a biblioteca padrão."""
+    w = max(1, min(width, 512))
+    h = max(1, min(height, 512))
+    expected_len = w * h * 3
+    if len(rgb_bytes) < expected_len:
+        rgb_bytes = (rgb_bytes + b"\x1a\x3b\x5c" * (w * h))[:expected_len]
+    else:
+        rgb_bytes = rgb_bytes[:expected_len]
+
+    def _chunk(chunk_type: bytes, data: bytes) -> bytes:
+        crc = zlib.crc32(chunk_type + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + chunk_type + data + struct.pack(">I", crc)
+
+    raw_scanlines = bytearray()
+    stride = w * 3
+    for y in range(h):
+        raw_scanlines.append(0)
+        raw_scanlines.extend(rgb_bytes[y * stride : (y + 1) * stride])
+
+    ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+    idat = zlib.compress(bytes(raw_scanlines))
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + _chunk(b"IHDR", ihdr)
+        + _chunk(b"IDAT", idat)
+        + _chunk(b"IEND", b"")
+    )
+
+
+def _extract_cover_logo_from_page(
+    page: Any,
+    output_assets_dir: Path | None = None,
+) -> tuple[bool, str | None]:
+    """
+    Detecta e extrai a primeira imagem (brasão/logo institucional) da Capa (Página 1).
+    Funciona com `page.images` ou inspecionando diretamente `/Resources -> /XObject`
+    sem depender de bibliotecas externas como Pillow.
+    """
+    try:
+        resources = page.get("/Resources") or {}
+        if hasattr(resources, "get_object"):
+            resources = resources.get_object()
+        xobjects = resources.get("/XObject") or {}
+        if hasattr(xobjects, "get_object"):
+            xobjects = xobjects.get_object()
+    except Exception:
+        xobjects = {}
+
+    for _, obj_ref in xobjects.items():
+        try:
+            obj = obj_ref.get_object() if hasattr(obj_ref, "get_object") else obj_ref
+            subtype = str(obj.get("/Subtype", ""))
+            if subtype != "/Image":
+                continue
+
+            if output_assets_dir is None:
+                return True, None
+
+            output_assets_dir.mkdir(parents=True, exist_ok=True)
+            raw_data = obj.get_data()
+            img_filter = str(obj.get("/Filter", ""))
+
+            if raw_data.startswith(b"\x89PNG"):
+                target_file = output_assets_dir / "logo_instituicao.png"
+                target_file.write_bytes(raw_data)
+                return True, f"figuras/{target_file.name}"
+            if raw_data.startswith(b"\xff\xd8") or "/DCTDecode" in img_filter:
+                target_file = output_assets_dir / "logo_instituicao.jpg"
+                target_file.write_bytes(raw_data)
+                return True, f"figuras/{target_file.name}"
+
+            width = int(obj.get("/Width", 64) or 64)
+            height = int(obj.get("/Height", 64) or 64)
+            png_bytes = _encode_rgb_png_bytes(width, height, raw_data)
+            target_file = output_assets_dir / "logo_instituicao.png"
+            target_file.write_bytes(png_bytes)
+            return True, f"figuras/{target_file.name}"
+        except Exception:
+            continue
+
+    return False, None
+
+
+def extract_institutional_pattern_from_pdf(
+    pdf_path: str | Path,
+    output_assets_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    """
+    Inspeciona um PDF acadêmico modelo da instituição (ex: TCC ou dissertação aprovada)
+    para aprender o padrão institucional da universidade:
+    1. Linhas de cabeçalho da Capa (instituição, faculdade/centro, curso);
+    2. Presença e extração automática de brasão/logo na Capa (Página 1);
+    3. Preâmbulo institucional e orientador na Folha de Rosto (Página 2);
+    4. Elementos pré-textuais presentes (ficha catalográfica, folha de aprovação, etc.);
+    5. Nomenclatura da seção conclusiva ('Conclusão' vs 'Considerações Finais').
+    """
+    path = Path(pdf_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Arquivo PDF modelo não encontrado: {path}")
+
+    reader = pypdf.PdfReader(str(path))
+    if len(reader.pages) == 0:
+        raise ValueError(f"O PDF modelo '{path.name}' não contém páginas.")
+
+    assets_dir = Path(output_assets_dir) if output_assets_dir else None
+
+    # 1. Capa (Página 1)
+    cover_page = reader.pages[0]
+    has_cover_logo, cover_logo_path = _extract_cover_logo_from_page(cover_page, assets_dir)
+
+    cover_text = cover_page.extract_text() or ""
+    cover_lines = [ln.strip() for ln in cover_text.splitlines() if ln.strip()]
+
+    cover_header_lines: list[str] = []
+    institution: str | None = None
+    department: str | None = None
+    course: str | None = None
+
+    inst_keywords = (
+        "universidade", "instituto", "faculdade", "centro universit", "centro de",
+        "escola", "departamento", "programa de p", "curso de", "bacharelado", "licenciatura",
+    )
+    for ln in cover_lines[:6]:
+        ln_lower = ln.lower()
+        if any(k in ln_lower for k in inst_keywords) or (ln.isupper() and len(ln.split()) >= 2):
+            cover_header_lines.append(ln)
+            if institution is None and any(
+                k in ln_lower for k in ("universidade", "instituto", "faculdade", "centro universit")
+            ):
+                institution = ln
+            elif department is None and any(
+                k in ln_lower for k in ("centro", "departamento", "instituto", "faculdade", "escola")
+            ):
+                department = ln
+            elif course is None and any(
+                k in ln_lower for k in ("curso", "programa", "bacharelado", "licenciatura", "engenharia", "ciência", "direito", "administração", "sistemas")
+            ):
+                course = ln
+
+    if not institution and cover_header_lines:
+        institution = cover_header_lines[0]
+
+    # 2. Folha de Rosto (Página 2, se existir)
+    preamble_text: str | None = None
+    advisor: str | None = None
+    if len(reader.pages) >= 2:
+        rosto_text = reader.pages[1].extract_text() or ""
+        rosto_lines = [ln.strip() for ln in rosto_text.splitlines() if ln.strip()]
+
+        # Busca Orientador(a)
+        for ln in rosto_lines:
+            m_adv = re.search(r"orientador(?:\(a\)|a)?\s*:\s*(.+)", ln, re.IGNORECASE)
+            if m_adv:
+                advisor = m_adv.group(1).strip()
+                break
+
+        # Busca bloco de preâmbulo (natureza do trabalho)
+        preamble_triggers = (
+            "trabalho de conclus", "monografia apresentada", "disserta",
+            "tese apresentada", "requisito parcial", "obten",
+        )
+        preamble_candidates: list[str] = []
+        capturing = False
+        for ln in rosto_lines:
+            ln_low = ln.lower()
+            if any(t in ln_low for t in preamble_triggers):
+                capturing = True
+            if capturing:
+                if re.search(r"^orientador|^coorientador|^\d{4}$", ln_low):
+                    break
+                preamble_candidates.append(ln)
+        if preamble_candidates:
+            preamble_text = " ".join(preamble_candidates)
+
+    # 3. Elementos pré-textuais e rótulo de conclusão
+    pre_textual_Catalog = {
+        "ficha catalografica": r"ficha\s+catalogr.{1,2}fica|dados\s+internacionais\s+de\s+cataloga",
+        "folha de aprovacao": r"folha\s+de\s+aprova.{1,3}o|banca\s+examinadora",
+        "dedicatoria": r"\bdedicat.{1,2}ria\b",
+        "agradecimentos": r"\bagradecimento[s]?\b",
+        "epigrafe": r"\bep.{1,2}grafe\b",
+        "lista de ilustracoes": r"lista\s+de\s+(?:ilustra.{1,3}es|figuras)",
+        "lista de tabelas": r"lista\s+de\s+tabelas",
+        "lista de quadros": r"lista\s+de\s+quadros",
+        "lista de abreviaturas": r"lista\s+de\s+(?:abreviaturas|siglas)",
+    }
+
+    required_pre_textual: list[str] = []
+    conclusion_label = "Conclusão"
+
+    max_scan_pages = min(len(reader.pages), 20)
+    for idx in range(max_scan_pages):
+        p_text = (reader.pages[idx].extract_text() or "").lower()
+        for elem_name, pattern in pre_textual_Catalog.items():
+            if elem_name not in required_pre_textual and re.search(pattern, p_text, re.IGNORECASE):
+                required_pre_textual.append(elem_name)
+
+    # Verifica nas últimas páginas ou no sumário se usa "Considerações Finais"
+    for idx in range(len(reader.pages)):
+        p_text = reader.pages[idx].extract_text() or ""
+        if re.search(r"considera.{1,3}es\s+finais", p_text, re.IGNORECASE):
+            conclusion_label = "Considerações Finais"
+            break
+
+    return {
+        "institution": institution,
+        "department": department,
+        "course": course,
+        "advisor": advisor,
+        "cover_header_lines": cover_header_lines,
+        "has_cover_logo": has_cover_logo,
+        "cover_logo_path": cover_logo_path,
+        "preamble_text": preamble_text,
+        "required_pre_textual": required_pre_textual,
+        "conclusion_label": conclusion_label,
+        "inferred_from_pdf": True,
     }
