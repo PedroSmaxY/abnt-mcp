@@ -26,6 +26,7 @@ from abnt_mcp.server import (
     audit_research_spec,
     simulate_banca,
     check_structure,
+    audit_illustrations_and_tables,
     validate_citations,
     analyze_tone,
     format_figure,
@@ -514,3 +515,43 @@ def test_scaffold_academic_project_latex_and_markdown_with_explicit_logo(tmp_pat
     assert res_md["success"] is True
     assert (md_dir / "main.md").is_file()
     assert "![Logotipo Institucional](figuras/logo_instituicao.png)" in (md_dir / "main.md").read_text(encoding="utf-8")
+
+
+def test_audit_illustrations_and_tables_nbr14724_and_ibge1993(tmp_path: Path) -> None:
+    """Valida a auditoria de figuras, tabelas e quadros (chamada prévia, Fonte:, imagem quebrada, sequência e IBGE)."""
+    doc = tmp_path / "manuscrito.md"
+    doc.write_text(
+        """# 1 Resultados
+
+Conforme observa-se na Figura 1, o fluxo está completo.
+
+**Figura 1 – Arquitetura do Sistema**
+![Arquitetura](figuras/inexistente.png)
+Fonte: Elaborado pelo autor (2026).
+
+**Figura 3 – Diagrama sem chamada prévia e fora de sequência**
+![Diagrama](figuras/outro_inexistente.png)
+
+A seguir apresenta-se a Tabela 1 no texto.
+
+**Tabela 1 – Comparativo puramente conceitual sem números**
+| Abordagem | Característica |
+| :--- | :--- |
+| Tradicional | Manual |
+| SDD | Automatizada |
+Fonte: Elaborado pelo autor (2026).
+""",
+        encoding="utf-8",
+    )
+
+    res = audit_illustrations_and_tables(str(tmp_path))
+    assert res["is_valid"] is False
+    assert res["total_figures"] == 2
+    assert res["total_tables"] == 1
+    assert len(res["broken_image_paths"]) == 2
+    assert any(u["number"] == 3 and u["type"] == "figura" for u in res["unreferenced_items"])
+    assert any(m["number"] == 3 and m["type"] == "figura" for m in res["missing_sources"])
+    assert any(n["found_number"] == 3 and n["expected_number"] == 2 for n in res["numbering_issues"])
+    assert len(res["quadro_vs_tabela_warnings"]) == 1
+    assert any(d["rule_id"] == "IBGE1993-R01" for d in res["diagnostics"])
+    assert any(d["rule_id"] == "NBR14724-R03" for d in res["diagnostics"])

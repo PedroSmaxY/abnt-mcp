@@ -15,6 +15,7 @@ from abnt_mcp.pillars.diagnostics import (
     check_project_structure,
     audit_citations_and_references,
     analyze_scientific_tone,
+    audit_project_illustrations_and_tables,
 )
 from abnt_mcp.pillars.writing import (
     format_citation_abnt,
@@ -113,6 +114,19 @@ def check_structure(
     - Diagnostica violações de numeração progressiva de seções da NBR 6024 (ex: ponto indevido no final).
     """
     result = check_project_structure(project_path=project_path, standard=standard)
+    return result.model_dump()
+
+
+@mcp.tool()
+def audit_illustrations_and_tables(project_path: str) -> dict[str, Any]:
+    """
+    Audita figuras, tabelas e quadros do projeto segundo a ABNT NBR 14724 (item 5.8) e IBGE (1993):
+    - Detecta figuras, tabelas ou quadros sem chamada textual prévia obrigatória (NBR14724-R03).
+    - Aponta ausência de 'Fonte:' na parte inferior (NBR14724-R03).
+    - Verifica se todos os arquivos de imagem referenciados existem fisicamente no projeto.
+    - Diagnostica numeração fora de sequência e confusão conceitual entre Tabela e Quadro (IBGE1993-R01).
+    """
+    result = audit_project_illustrations_and_tables(project_path=project_path)
     return result.model_dump()
 
 
