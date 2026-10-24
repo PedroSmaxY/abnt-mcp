@@ -25,6 +25,8 @@ from abnt_mcp.server import (
     audit_research_spec,
     simulate_banca,
     check_structure,
+    validate_citations,
+    analyze_tone,
     format_figure,
     format_table,
     clean_bibtex_file,
@@ -312,3 +314,44 @@ def test_dynamic_year_and_safe_path_and_bibtex_backup(tmp_path: Path) -> None:
     assert backup_file.is_file()
     assert backup_file.read_text(encoding="utf-8") == original_bib
     assert "maio" in bib_path.read_text(encoding="utf-8")
+
+
+def test_unified_diagnostic_item_normative_vs_heuristic(tmp_path: Path) -> None:
+    """Verifica a distinção explícita entre violação normativa (ABNT) e heurística editorial."""
+    doc_file = tmp_path / "doc.md"
+    doc_file.write_text(
+        "# 1.1. Introdução\nSegundo (SILVA, 2023) e [@ChaveOrfa], nós fizemos algo obviamente incrível.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "refs.bib").write_text(
+        "@book{ObraNaoCitada2024, author={Autor, A.}, title={Livro}, year={2024}}\n",
+        encoding="utf-8",
+    )
+
+    # 1. check_structure emite diagnósticos normativos (confidence='high', human_review_required=False)
+    struct_res = check_structure(str(tmp_path))
+    assert len(struct_res["diagnostics"]) > 0
+    assert any(
+        d["rule_id"] == "NBR6024-R01"
+        and d["nature"] == "normative"
+        and d["confidence"] == "high"
+        and d["human_review_required"] is False
+        for d in struct_res["diagnostics"]
+    )
+
+    # 2. validate_citations emite diagnósticos normativos NBR10520-R01 e NBR10520-R02
+    cit_res = validate_citations(str(tmp_path))
+    diag_ids = {d["rule_id"] for d in cit_res["diagnostics"]}
+    assert "NBR10520-R01" in diag_ids
+    assert "NBR10520-R02" in diag_ids
+    assert all(d["nature"] == "normative" and d["human_review_required"] is False for d in cit_res["diagnostics"])
+
+    # 3. analyze_tone emite diagnósticos heurísticos (nature='heuristic', human_review_required=True)
+    tone_res = analyze_tone("Eu fiz uma pesquisa e obviamente a gente achou pra caramba.")
+    assert len(tone_res["diagnostics"]) >= 3
+    assert all(
+        d["nature"] == "heuristic"
+        and d["confidence"] == "medium"
+        and d["human_review_required"] is True
+        for d in tone_res["diagnostics"]
+    )
