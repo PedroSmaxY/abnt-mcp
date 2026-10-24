@@ -487,6 +487,7 @@ def format_table_abnt(
     )
 
     # 3. Typst
+    quadro_kind_attr = '\n  kind: "quadro",\n  supplement: [Quadro],' if not is_table else ""
     typst_code = (
         f"#figure(\n"
         f"  table(\n"
@@ -495,7 +496,7 @@ def format_table_abnt(
         f"    " + ", ".join(f"[{h}]" for h in headers) + ",\n"
         + ",\n".join(f"    {', '.join(f'[{cell}]' for cell in r)}" for r in rows) + "\n"
         f"  ),\n"
-        f"  caption: [{title.strip()}],\n"
+        f"  caption: [{title.strip()}],{quadro_kind_attr}\n"
         f")\n"
         f"#align(center)[#text(size: 10pt)[{source_label}]]"
     )

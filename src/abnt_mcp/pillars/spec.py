@@ -388,30 +388,9 @@ Registro meus sinceros agradecimentos à {inst}, ao(à) orientador(a) {advisor} 
 #pagebreak()
 """)
 
-        if "lista de ilustracoes" in req_normalized:
-            post_abstract_chunks.append("""// --- LISTA DE ILUSTRAÇÕES (NBR 14724) ---
-#align(center)[*LISTA DE ILUSTRAÇÕES*]
-#v(1cm)
-#outline(title: none, target: figure.where(kind: image))
-#pagebreak()
-""")
-
-        if "lista de tabelas" in req_normalized:
-            post_abstract_chunks.append("""// --- LISTA DE TABELAS (NBR 14724) ---
-#align(center)[*LISTA DE TABELAS*]
-#v(1cm)
-#outline(title: none, target: figure.where(kind: table))
-#pagebreak()
-""")
-
-        if "lista de quadros" in req_normalized:
-            post_abstract_chunks.append("""// --- LISTA DE QUADROS (NBR 14724) ---
-#align(center)[*LISTA DE QUADROS*]
-#v(1cm)
-#outline(title: none, target: figure.where(kind: "quadro"))
-#pagebreak()
-""")
-
+        # Elementos pós-abstract: Listas de ilustrações, tabelas e quadros no Typst
+        # são geradas por blocos reativos (#context query) em _render_scaffolded_typst
+        # para que só se materializem no PDF quando de fato existirem itens no manuscrito.
         if "lista de abreviaturas" in req_normalized:
             post_abstract_chunks.append("""// --- LISTA DE ABREVIATURAS E SIGLAS (NBR 14724) ---
 #align(center)[*LISTA DE ABREVIATURAS E SIGLAS*]
@@ -619,8 +598,28 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
   numbering: none
 )
 
-#set par(justify: true, leading: 0.9em, first-line-indent: 1.25cm)
+#set par(
+  justify: true,
+  leading: 0.8em,
+  first-line-indent: (amount: 1.25cm, all: true)
+)
 #set heading(numbering: "1.1")
+#show figure: set figure.caption(position: top)
+
+// --- REGRAS DE DIAGRAMAÇÃO ABNT (NBR 14724 item 5.2.1) ---
+// Cada capítulo primário inicia obrigatoriamente em folha distinta
+#show heading.where(level: 1): it => {{
+  pagebreak(weak: true)
+  v(1.5cm)
+  it
+  v(1.5cm)
+}}
+
+#show heading.where(level: 2): it => {{
+  v(1cm)
+  it
+  v(0.8cm)
+}}
 
 // --- CAPA (Não contada na paginação - NBR 14724 item 5.3) ---
 #align(center)[
@@ -687,6 +686,38 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
 ]
 #pagebreak()
 {post_abstract_block}
+// --- LISTAS PRÉ-TEXTUAIS REATIVAS (NBR 14724) ---
+// Materializam-se automaticamente apenas se houver figuras, tabelas ou quadros no documento.
+#context {{
+  let figs = query(figure.where(kind: image))
+  if figs.len() > 0 {{
+    align(center)[*LISTA DE ILUSTRAÇÕES*]
+    v(1cm)
+    outline(title: none, target: figure.where(kind: image))
+    pagebreak()
+  }}
+}}
+
+#context {{
+  let tabs = query(figure.where(kind: table))
+  if tabs.len() > 0 {{
+    align(center)[*LISTA DE TABELAS*]
+    v(1cm)
+    outline(title: none, target: figure.where(kind: table))
+    pagebreak()
+  }}
+}}
+
+#context {{
+  let quadros = query(figure.where(kind: "quadro"))
+  if quadros.len() > 0 {{
+    align(center)[*LISTA DE QUADROS*]
+    v(1cm)
+    outline(title: none, target: figure.where(kind: "quadro"))
+    pagebreak()
+  }}
+}}
+
 // --- SUMÁRIO (NBR 6027:2012) ---
 #align(center)[*SUMÁRIO*]
 #v(1cm)
