@@ -1,71 +1,122 @@
-# ABNT-MCP 🎓
+# 🎓 ABNT Copilot MCP (`abnt-mcp`)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Protocol: MCP](https://img.shields.io/badge/Protocol-MCP-blue.svg)](https://modelcontextprotocol.io)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
-
-> **O copiloto definitivo para TCCs, dissertações, teses e artigos acadêmicos no padrão ABNT via Model Context Protocol (MCP).**
+> **O servidor Model Context Protocol (MCP) definitivo para estudantes, pesquisadores e orientandos no Brasil.**
+> Desenvolvido em Python moderno (>=3.10) utilizando **FastMCP**, pronto para distribuição e execução instantânea via `uvx abnt-mcp`.
 
 ---
 
-## 🚀 O que é o ABNT-MCP?
+## 📑 Sumário
 
-O **ABNT-MCP** é um servidor MCP desenvolvido em Python moderno com **FastMCP** projetado para ser o braço direito de qualquer estudante, orientador ou pesquisador brasileiro. Ele transforma o seu assistente de IA (Claude Desktop, Cursor, Antigravity, OpenCode, Zed) em um orientador acadêmico e revisor de normas técnicas.
-
-### 🌟 Principais Recursos
-
-1. **Validação Estrutural Rigorosa (NBR 14724):**
-   * Identifica elementos pré-textuais, textuais e pós-textuais obrigatórios sem gerar falsos positivos em listas opcionais (como lista de ilustrações ou tabelas).
-   * Suporte nativo a **LaTeX** (`abntex2`), **Markdown** (Pandoc) e **Typst**.
-
-2. **Auditoria de Citações Cruzadas:**
-   * Cruza o texto com o seu arquivo `.bib` para detectar citações órfãs ou referências não utilizadas.
-   * Suporta os comandos do `abntex2` (`\cite`, `\citeonline`, `\apud`, `\citet`, etc.), Markdown (`[@ref]`) e Typst (`@ref`).
-
-3. **Busca e Gestão Bibliográfica:**
-   * Busca artigos em bases internacionais e latino-americanas (**Crossref**, **Semantic Scholar** e **SciELO**).
-   * Obtenção direta de BibTeX oficial via DOI com proteção contra duplicatas.
-   * Higienização de arquivos `.bib` para a **NBR 6023** preservando acentuação em UTF-8 nativo.
-
-4. **Compilação Inteligente com Pré-checagem:**
-   * Compilação multi-pass para LaTeX (`latexmk` ou `pdflatex -> bibtex -> pdflatex`) para garantir que nenhuma citação fique como `[?]`.
-   * Compilação com Pandoc e Typst.
-
-5. **Prompts e Recursos Nativos:**
-   * Simulação de banca examinadora, formatação de citações longas/curtas e revisão de tom acadêmico impessoal.
+- [Visão Geral](#-visão-geral)
+- [Os 4 Pilares do MCP](#-os-4-pilares-do-mcp)
+- [Instalação e Execução](#-instalação-e-execução)
+- [Configuração nos Clientes MCP](#-configuração-nos-clientes-mcp)
+  - [Cursor IDE](#1-cursor-ide)
+  - [Claude Desktop](#2-claude-desktop)
+  - [Google Antigravity](#3-google-antigravity)
+- [Catálogo de Ferramentas (Tools)](#-catálogo-de-ferramentas-tools)
+- [Catálogo de Prompts Nativos](#-catálogo-de-prompts-nativos)
+- [Catálogo de Recursos Nativos (Resources)](#-catálogo-de-recursos-nativos-resources)
+- [Atenção à NBR 10520:2023 (Fim da Caixa Alta)](#-atenção-à-nbr-105202023-fim-da-caixa-alta)
+- [Testes Automatizados](#-testes-automatizados)
+- [Licença](#-licença)
 
 ---
 
-## 📦 Como Usar
+## 🌟 Visão Geral
 
-### Execução Instantânea com `uv` (Recomendado)
+Elaborar um TCC, dissertação, tese ou artigo no Brasil costuma ser um processo desgastante devido às minúcias das normas da **ABNT**. 
 
-Você não precisa instalar dependências manualmente. Com o [uv](https://github.com/astral-sh/uv), basta configurar no cliente MCP desejado:
+O **ABNT Copilot MCP** transforma qualquer assistente de IA conectado via protocolo MCP em um **arquiteto acadêmico e revisor de banca**, garantindo conformidade matemática com as normas vigentes, auditoria de citações, higienização de BibTeX, compilação de documentos e busca de literatura científica.
 
-#### No Claude Desktop (`claude_desktop_config.json`) ou Antigravity:
+---
+
+## 🎯 Os 4 Pilares do MCP
+
+### 1. 🔍 Pilar 1: Analisar & Diagnosticar
+- **Validação Estrutural (NBR 14724:2011):** Diagnóstico automático dos elementos pré-textuais (capa, folha de rosto, resumo, abstract, sumário), textuais (introdução, desenvolvimento, conclusão) e pós-textuais (referências). Sem falsos positivos: não penaliza ausência de listas opcionais.
+- **Auditoria Cruzada de Citações vs Referências:**
+  - Identifica **citações órfãs** (chaves citadas no texto que não constam no `.bib`).
+  - Identifica **entradas do `.bib` nunca utilizadas** no texto.
+  - Suporte nativo a **LaTeX** (`\cite`, `\citeonline`, `\apud`, `\citep`), **Markdown** (`[@ref]`, `@ref`) e **Typst** (`@ref`).
+- **Análise de Tom e Rigor Científico:**
+  - Varredura de 1ª pessoa (*"eu fiz"*, *"nós achamos"*, *"meu estudo"*).
+  - Identificação de juízos de valor sem comprovação (*"claramente"*, *"obviamente"*, *"sem dúvida"*).
+  - Detecção de coloquialismos (*"a gente"*, *"pra caramba"*, *"bater o martelo"*, *"coisa"*).
+  - Sinalização de parágrafos extensos sem fundamentação bibliográfica.
+
+### 2. ✍️ Pilar 2: Redigir & Reformular
+- **Formatador de Citações (NBR 10520:2023):**
+  - Citações diretas curtas (até 3 linhas) com pontuação após os parênteses.
+  - Citações diretas longas (> 3 linhas) em bloco recuado a 4 cm, fonte 10, espaçamento simples e sem aspas nos formatos Markdown, LaTeX e Typst.
+  - Formatação autor-data estritamente em **caixa mista/baixa** `(Silva, 2023)` conforme a atualização de 2023.
+- **Formatador de Referências (NBR 6023:2018):**
+  - Livros, artigos de revistas, teses, sites e leis.
+  - Destaque em negrito **apenas no título principal** (subtítulo após dois pontos nunca recebe destaque).
+  - Alinhamento obrigatório à margem esquerda e abreviação correta de meses (`maio` sem ponto).
+- **Gerador de Resumo e Abstract (NBR 6028:2021):**
+  - Estrutura canônica: Contexto, Objetivo, Metodologia, Resultados e Conclusão.
+  - Validação de extensão (150 a 500 palavras).
+  - 3 a 5 palavras-chave separadas por ponto e vírgula e terminadas em ponto.
+
+### 3. 🧪 Pilar 3: Testar & Compilar
+- **Compilação Multi-engine:**
+  - **LaTeX (`abntex2`):** Suporte nativo a `latexmk` ou ciclo multi-pass (`pdflatex -> bibtex -> pdflatex -> pdflatex`) para eliminar referências com `[?]`.
+  - **Typst:** Compilação nativa ultra-rápida integrada com `#bibliography`.
+  - **Markdown:** Compilação Pandoc com `--citeproc` e estilos CSL.
+- **Linter e Pré-checagem de Sintaxe:** Diagnostica ambientes desbalanceados (`\begin{...}` sem `\end{...}`) e caracteres desprotegidos antes de enviar ao compilador, com indicação exata de arquivo e linha.
+
+### 4. 💡 Pilar 4: Dicas, Mentoria & Banca Examinadora
+- **Busca de Literatura Científica:** Consulta em tempo real às bases abertas **Crossref** e **SciELO** com retorno de DOI, título, autores, ano, periódico e resumo.
+- **Obtenção de BibTeX por DOI:** Download do BibTeX oficial diretamente pelo DOI (`doi.org`) com inserção inteligente no arquivo `.bib` sem duplicatas.
+- **Higienizador de BibTeX:** Limpeza de acentos legados de LaTeX para UTF-8 estrito, validação de campos obrigatórios e correção de meses.
+- **Simulador de Banca:** Análise impiedosa e construtiva da consistência entre Introdução e Conclusão, rigor metodológico e formulação de perguntas difíceis para a defesa oral.
+
+---
+
+## 🚀 Instalação e Execução
+
+### Execução Instantânea (Recomendada via `uvx`)
+Não é necessário instalar nada globalmente se você possui o `uv` instalado:
+
+```bash
+uvx abnt-mcp
+```
+
+### Instalação via pip / uv
+```bash
+# Com uv:
+uv pip install abnt-mcp
+
+# Com pip:
+pip install abnt-mcp
+
+# Executar o servidor:
+abnt-mcp
+```
+
+---
+
+## ⚙️ Configuração nos Clientes MCP
+
+### 1. Cursor IDE
+No diretório do seu projeto ou globalmente, crie ou edite o arquivo `.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
-    "abnt": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--with", "mcp[cli]",
-        "--with", "bibtexparser",
-        "--with", "requests",
-        "--with", "pypdf",
-        "python", "-m", "abnt_mcp.server"
-      ],
-      "env": {
-        "ABNT_MCP_EMAIL": "seu.email@academico.br"
-      }
+    "abnt-mcp": {
+      "command": "uvx",
+      "args": ["abnt-mcp"]
     }
   }
 }
 ```
 
-#### No Cursor (`.cursor/mcp.json`):
+### 2. Claude Desktop
+Edite o arquivo de configuração do Claude Desktop (`claude_desktop_config.json`):
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 ```json
 {
@@ -78,32 +129,80 @@ Você não precisa instalar dependências manualmente. Com o [uv](https://github
 }
 ```
 
+### 3. Google Antigravity
+No arquivo de configuração de MCP (`mcp_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "abnt-mcp": {
+      "command": "uvx",
+      "args": ["abnt-mcp"]
+    }
+  }
+}
+```
+
 ---
 
-## 🛠️ Ferramentas Disponíveis
+## 🛠️ Catálogo de Ferramentas (Tools)
 
 | Ferramenta | Descrição |
 | :--- | :--- |
-| `pesquisar_artigos` | Pesquisa trabalhos científicos no Crossref, Semantic Scholar e SciELO. |
-| `buscar_e_adicionar_bibtex` | Obtém BibTeX por DOI e insere de forma atômica no `.bib`. |
-| `higienizar_bibtex` | Padroniza o `.bib` conforme NBR 6023 com suporte a UTF-8. |
-| `validar_citacoes` | Cruza citações do texto com o `.bib` (LaTeX, Markdown, Typst). |
-| `verificar_estrutura_tcc` | Valida conformidade estrutural com a ABNT NBR 14724. |
-| `compilar_documento` | Compila o trabalho para PDF via LaTeX multi-pass, Pandoc ou Typst. |
-| `extrair_texto_pdf` | Lê e extrai texto de artigos em PDF para revisão ou síntese. |
+| `search_academic_papers` | Busca artigos científicos no Crossref e SciELO por palavras-chave com DOI e resumo. |
+| `fetch_bibtex_by_doi` | Baixa o BibTeX oficial por DOI e salva no `.bib` sem duplicar. |
+| `validate_citations` | Cruza citações do texto (LaTeX, Markdown, Typst) com o `.bib` e aponta órfãs e violações. |
+| `check_structure` | Valida conformidade estrutural da NBR 14724 e numeração da NBR 6024. |
+| `compile_tcc` | Compila o projeto (LaTeX, Markdown, Typst) com ciclo multi-pass e relatório de erros. |
+| `read_pdf_section` | Extrai texto e estatísticas de páginas ou seções de um arquivo PDF via `pypdf`. |
+| `clean_bibtex_file` | Higieniza arquivos BibTeX (UTF-8 estrito, meses ABNT, campos obrigatórios). |
+| `format_citation` | Gera citação direta ou indireta conforme a NBR 10520:2023 em MD, LaTeX ou Typst. |
+| `format_reference` | Gera referência bibliográfica na NBR 6023:2018 com destaque exclusivo no título. |
+| `analyze_tone` | Detecta 1ª pessoa, expressões coloquiais e juízos de valor com nota de rigor científico. |
+| `generate_academic_resumo` | Gera Resumo ou Abstract (150-500 palavras) com palavras-chave formatadas (NBR 6028). |
 
 ---
 
-## 🧪 Desenvolvimento & Testes
+## 💬 Catálogo de Prompts Nativos
 
-Para rodar os testes localmente com `uv`:
+- **`revisar_capitulo(texto, foco)`**: Realiza uma revisão minuciosa com nota de rigor (0 a 100), pontos fortes, desvios apontados e reescrita recomendada.
+- **`formatar_citacao(trecho, autor, ano, pagina, tipo)`**: Fornece o código exato da citação para LaTeX (`\begin{citacao}` ou aspas), Markdown ou Typst.
+- **`simular_banca(projeto_path)`**: Simula a arguição da banca examinadora, avaliando coerência metodológica, aderência dos objetivos e as 3 perguntas mais difíceis da defesa.
+
+---
+
+## 📚 Catálogo de Recursos Nativos (Resources)
+
+- `abnt://guia/citacoes`: Resumo completo das diretrizes da NBR 10520:2023.
+- `abnt://guia/estrutura`: Checklist dos elementos pré-textuais, textuais e pós-textuais (NBR 14724:2011).
+- `abnt://guia/referencias`: Regras para elaboração de referências bibliográficas (NBR 6023:2018).
+- `abnt://template/latex`: Template funcional completo em LaTeX com abnTeX2.
+- `abnt://template/typst`: Template funcional moderno em Typst com margens 3-3-2-2.
+- `abnt://template/markdown`: Template em Markdown (Pandoc) com cabeçalho YAML e suporte a CSL.
+
+---
+
+## ⚠️ Atenção à NBR 10520:2023 (Fim da Caixa Alta)
+
+> **AVISO IMPORTANTE:** A norma ABNT NBR 10520 foi atualizada em julho de 2023 e **revogou expressamente** a exigência de sobrenomes em CAIXA ALTA dentro de parênteses.
+> 
+> - ❌ **Incorreto (Norma antiga 2002):** `(SILVA, 2021, p. 15)` ou `(SANTOS; OLIVEIRA, 2020)`
+> - ✅ **Correto (Norma vigente 2023):** `(Silva, 2021, p. 15)` ou `(Santos; Oliveira, 2020)`
+> 
+> O **ABNT Copilot MCP** fiscaliza ativamente esse vício de linguagem nas IAs e adota o padrão 2023 por padrão.
+
+---
+
+## 🧪 Testes Automatizados
+
+O projeto conta com uma suíte de testes robusta utilizando `pytest`:
 
 ```bash
-uv run --with pytest pytest tests/ -v
+uv run pytest -v
 ```
 
 ---
 
 ## 📄 Licença
 
-Distribuído sob a licença **MIT**. Consulte [LICENSE](LICENSE) para mais informações.
+Distribuído sob a licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para obter mais detalhes.

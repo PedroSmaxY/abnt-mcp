@@ -1,0 +1,13 @@
+"""Recursos do ABNT Copilot MCP."""
+
+from abnt_mcp.resources.guides import (
+    GUIDE_CITATIONS_NBR10520,
+    GUIDE_STRUCTURE_NBR14724,
+    GUIDE_REFERENCES_NBR6023,
+)
+
+__all__ = [
+    "GUIDE_CITATIONS_NBR10520",
+    "GUIDE_STRUCTURE_NBR14724",
+    "GUIDE_REFERENCES_NBR6023",
+]

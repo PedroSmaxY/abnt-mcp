@@ -1,3 +1,6 @@
-"""ABNT-MCP: O copiloto definitivo para TCC e trabalhos acadêmicos no padrão ABNT."""
+"""ABNT Copilot MCP - Servidor Model Context Protocol definitivo para trabalhos acadêmicos no padrão ABNT."""
+
+from abnt_mcp.server import mcp, main
 
 __version__ = "0.1.0"
+__all__ = ["mcp", "main", "__version__"]

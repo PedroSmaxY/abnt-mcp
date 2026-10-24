@@ -1,174 +1,398 @@
+"""Servidor FastMCP do ABNT Copilot MCP.
+
+Ponto central de registro de ferramentas (@mcp.tool), prompts (@mcp.prompt)
+e recursos (@mcp.resource).
+"""
+
 from __future__ import annotations
-
 import sys
-from typing import Optional
-from mcp.server.fastmcp import FastMCP
+from typing import Any, Literal
+from fastmcp import FastMCP
 
-from abnt_mcp.tools.search import search_papers
-from abnt_mcp.tools.bibtex import get_bibtex_by_doi, clean_bibtex_file
-from abnt_mcp.tools.citations import validate_citations
-from abnt_mcp.tools.structure import check_tcc_structure
-from abnt_mcp.tools.compiler import compile_tcc
-from abnt_mcp.tools.pdf import read_pdf_paper
+from abnt_mcp.config import SERVER_NAME
+from abnt_mcp.models import CitationInput, ReferenceInput, Author
+from abnt_mcp.pillars.diagnostics import (
+    check_project_structure,
+    audit_citations_and_references,
+    analyze_scientific_tone,
+)
+from abnt_mcp.pillars.writing import (
+    format_citation_abnt,
+    format_reference_abnt,
+    generate_abnt_resumo,
+    reformulate_to_impersonal,
+)
+from abnt_mcp.pillars.compiler import compile_project
+from abnt_mcp.pillars.advisory import (
+    search_academic_literature,
+    fetch_bibtex_by_doi_service,
+    clean_bibtex_file_service,
+    simulate_banca_examination,
+)
+from abnt_mcp.parsers.pdf_reader import extract_pdf_section
+from abnt_mcp.resources.guides import (
+    GUIDE_CITATIONS_NBR10520,
+    GUIDE_STRUCTURE_NBR14724,
+    GUIDE_REFERENCES_NBR6023,
+)
+from abnt_mcp.templates.latex import get_latex_template
+from abnt_mcp.templates.typst import get_typst_template
+from abnt_mcp.templates.markdown import get_markdown_template
 
-mcp = FastMCP("ABNT-Copilot", description="Servidor MCP para assistência completa em TCCs e escrita acadêmica (ABNT).")
-
-
-# ==============================================================================
-# FERRAMENTAS (TOOLS)
-# ==============================================================================
-
-@mcp.tool()
-def pesquisar_artigos(query: str, limit: int = 10, source: str = "crossref") -> dict:
-    """Busca artigos acadêmicos científicos indexados no Crossref, Semantic Scholar ou SciELO."""
-    return search_papers(query=query, limit=limit, source=source)
-
-
-@mcp.tool()
-def buscar_e_adicionar_bibtex(doi: str, bib_path: Optional[str] = None) -> dict:
-    """Obtém a entrada BibTeX oficial a partir do DOI e opcionalmente adiciona ao .bib sem duplicar."""
-    return get_bibtex_by_doi(doi=doi, bib_path=bib_path)
-
-
-@mcp.tool()
-def higienizar_bibtex(bib_path: str) -> dict:
-    """Padroniza e valida o arquivo .bib conforme a norma ABNT NBR 6023 em UTF-8."""
-    return clean_bibtex_file(bib_path=bib_path)
-
-
-@mcp.tool()
-def validar_citacoes(project_path: str) -> dict:
-    """Valida citações no texto (LaTeX, Markdown, Typst) contra as referências do .bib."""
-    return validate_citations(project_path=project_path)
-
-
-@mcp.tool()
-def verificar_estrutura_tcc(project_path: str) -> dict:
-    """Verifica a presença dos elementos obrigatórios e opcionais segundo a ABNT NBR 14724."""
-    return check_tcc_structure(project_path=project_path)
-
-
-@mcp.tool()
-def compilar_documento(project_path: str, engine: str = "auto") -> dict:
-    """Compila o trabalho (LaTeX multi-pass, Pandoc ou Typst) gerando o PDF final."""
-    return compile_tcc(project_path=project_path, engine=engine)
-
-
-@mcp.tool()
-def extrair_texto_pdf(file_path: str, pages: Optional[list[int]] = None) -> dict:
-    """Extrai texto de um arquivo PDF local para leitura ou revisão acadêmica."""
-    return read_pdf_paper(file_path=file_path, pages=pages)
+# Inicializa o servidor FastMCP
+mcp = FastMCP(
+    SERVER_NAME,
+    instructions="Servidor MCP para validação, redação, compilação e consultoria acadêmica segundo as normas ABNT.",
+)
 
 
 # ==============================================================================
-# PROMPTS EMBUTIDOS
+# 1. FERRAMENTAS (@mcp.tool)
+# ==============================================================================
+
+@mcp.tool()
+def search_academic_papers(
+    query: str,
+    source: Literal["all", "crossref", "scielo"] = "all",
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    """
+    Busca artigos científicos recentes nas bases abertas Crossref e SciELO por DOI, título e resumo.
+    Útil para embasar fundamentação teórica e capítulos de revisão bibliográfica.
+    """
+    return search_academic_literature(query=query, source=source, limit=limit)
+
+
+@mcp.tool()
+def fetch_bibtex_by_doi(
+    doi: str,
+    bib_file: str | None = None,
+) -> dict[str, Any]:
+    """
+    Recupera a entrada BibTeX oficial correspondente a um DOI via negociação de conteúdo
+    e opcionalmente anexa ao arquivo .bib do projeto sem duplicar chaves ou DOIs.
+    """
+    return fetch_bibtex_by_doi_service(doi=doi, bib_file=bib_file)
+
+
+@mcp.tool()
+def validate_citations(
+    project_path: str,
+    bib_path: str | None = None,
+) -> dict[str, Any]:
+    """
+    Realiza auditoria cruzada completa entre o texto e as referências:
+    - Suporta LaTeX (\\cite, \\citeonline, \\apud, \\citep), Markdown ([@ref]) e Typst (@ref).
+    - Detecta citações órfãs (citadas no texto, mas ausentes no .bib).
+    - Aponta entradas do .bib nunca citadas no texto.
+    - Identifica citações com sobrenome em CAIXA ALTA violando a NBR 10520:2023.
+    """
+    result = audit_citations_and_references(project_path=project_path, bib_path=bib_path)
+    return result.model_dump()
+
+
+@mcp.tool()
+def check_structure(
+    project_path: str,
+    standard: str = "ABNT_14724",
+) -> dict[str, Any]:
+    """
+    Valida a conformidade da estrutura acadêmica conforme a ABNT NBR 14724:2011:
+    - Verifica elementos pré-textuais obrigatórios (capa, folha de rosto, resumo, abstract, sumário).
+    - Não penaliza a ausência de listas opcionais (figuras, tabelas, siglas).
+    - Verifica elementos textuais e pós-textuais (referências).
+    - Diagnostica violações de numeração progressiva de seções da NBR 6024 (ex: ponto indevido no final).
+    """
+    result = check_project_structure(project_path=project_path, standard=standard)
+    return result.model_dump()
+
+
+@mcp.tool()
+def compile_tcc(
+    project_path: str,
+    engine: Literal["auto", "latex", "typst", "markdown"] = "auto",
+) -> dict[str, Any]:
+    """
+    Compila o projeto acadêmico para PDF utilizando LaTeX (abnTeX2 com ciclo multi-pass para evitar [?]),
+    Typst ou Pandoc com --citeproc. Inclui pré-checagem de erros de sintaxe e diagnóstico amigável.
+    """
+    return compile_project(project_path=project_path, engine=engine)
+
+
+@mcp.tool()
+def read_pdf_section(
+    pdf_path: str,
+    pages: list[int] | None = None,
+    start_page: int | None = None,
+    end_page: int | None = None,
+) -> dict[str, Any]:
+    """
+    Extrai o texto e dados estatísticos de um PDF acadêmico para fins de revisão e auditoria.
+    Permite selecionar páginas específicas ou intervalos (1-indexado).
+    """
+    return extract_pdf_section(
+        pdf_path=pdf_path,
+        pages=pages,
+        start_page=start_page,
+        end_page=end_page,
+    )
+
+
+@mcp.tool()
+def clean_bibtex_file(
+    bib_path: str,
+    output_path: str | None = None,
+) -> dict[str, Any]:
+    """
+    Higieniza e normaliza um arquivo BibTeX segundo a ABNT NBR 6023:2018:
+    - Converte acentos LaTeX obsoletos para UTF-8 nativo estrito.
+    - Normaliza abreviação de meses (incluindo a regra de 'maio' sem ponto).
+    - Valida campos obrigatórios por tipo de entrada sem corromper ou perder chaves.
+    """
+    return clean_bibtex_file_service(bib_path=bib_path, output_path=output_path)
+
+
+@mcp.tool()
+def format_citation(
+    authors: list[str],
+    year: str | int,
+    page: str | None = None,
+    style: Literal["in_parentheses", "in_text"] = "in_parentheses",
+    quote_type: Literal["direct_short", "direct_long", "indirect"] = "indirect",
+    quote_text: str | None = None,
+    target_format: Literal["markdown", "latex", "typst", "text"] = "markdown",
+) -> dict[str, Any]:
+    """
+    Formata chamadas de citação rigorosamente conforme a NBR 10520:2023:
+    - Sobrenomes em caixa mista/baixa dentro dos parênteses (ex: '(Silva, 2023)' e nunca '(SILVA, 2023)').
+    - Citações diretas curtas (<=3 linhas): entre aspas com ponto final APÓS os parênteses.
+    - Citações diretas longas (>3 linhas): bloco recuado a 4 cm, fonte 10, espaçamento simples e sem aspas.
+    """
+    data = CitationInput(
+        authors=authors,
+        year=year,
+        page=page,
+        style=style,
+        quote_type=quote_type,
+        quote_text=quote_text,
+        target_format=target_format,
+    )
+    return format_citation_abnt(data)
+
+
+@mcp.tool()
+def format_reference(
+    entry_type: Literal["book", "book_chapter", "journal_article", "website", "thesis", "legislation", "conference", "software"],
+    title: str,
+    year: str | int,
+    subtitle: str | None = None,
+    authors: list[dict[str, str]] | None = None,
+    edition: str | None = None,
+    city: str | None = None,
+    publisher: str | None = None,
+    journal_name: str | None = None,
+    volume: str | None = None,
+    number: str | None = None,
+    pages: str | None = None,
+    url: str | None = None,
+    access_date: str | None = None,
+    emphasis_style: Literal["bold", "italic"] = "bold",
+) -> dict[str, Any]:
+    """
+    Formata uma referência bibliográfica conforme a ABNT NBR 6023:2018:
+    - Alinhamento à margem esquerda.
+    - Destaque em negrito/itálico aplicado exclusivamente ao título principal (nunca ao subtítulo).
+    - Abreviação correta de meses em língua portuguesa.
+    """
+    parsed_authors = [Author(**a) for a in authors] if authors else None
+    data = ReferenceInput(
+        entry_type=entry_type,
+        title=title,
+        subtitle=subtitle,
+        authors=parsed_authors,
+        edition=edition,
+        city=city,
+        publisher=publisher,
+        year=year,
+        journal_name=journal_name,
+        volume=volume,
+        number=number,
+        pages=pages,
+        url=url,
+        access_date=access_date,
+        emphasis_style=emphasis_style,
+    )
+    return format_reference_abnt(data)
+
+
+@mcp.tool()
+def analyze_tone(text: str) -> dict[str, Any]:
+    """
+    Analisa o rigor científico e a impessoalidade da escrita acadêmica:
+    - Detecta uso de 1ª pessoa ('eu fiz', 'nós achamos', 'meu trabalho').
+    - Sinaliza juízos de valor sem comprovação ('claramente', 'obviamente', 'sem dúvida').
+    - Encontra expressões coloquiais e parágrafos desprovidos de citação/fundamentação.
+    - Sugere reformulações para voz passiva sintética e terceira pessoa.
+    """
+    result = analyze_scientific_tone(text)
+    return result.model_dump()
+
+
+@mcp.tool()
+def generate_academic_resumo(
+    context: str,
+    objective: str,
+    methodology: str,
+    results: str,
+    conclusion: str,
+    keywords: list[str],
+    language: Literal["pt", "en"] = "pt",
+) -> dict[str, Any]:
+    """
+    Gera um Resumo (em português) ou Abstract (em inglês) na estrutura canônica da NBR 6028:2021:
+    - Parágrafo único contínuo.
+    - Verbos na 3ª pessoa e linguagem impessoal concisa.
+    - Avalia a faixa de palavras (150 a 500 para TCC/teses).
+    - Formata palavras-chave separadas por ponto e vírgula e terminadas em ponto.
+    """
+    return generate_abnt_resumo(
+        context=context,
+        objective=objective,
+        methodology=methodology,
+        results=results,
+        conclusion=conclusion,
+        keywords=keywords,
+        language=language,
+    )
+
+
+# ==============================================================================
+# 2. PROMPTS NATIVOS (@mcp.prompt)
 # ==============================================================================
 
 @mcp.prompt()
 def revisar_capitulo(texto: str, foco: str = "geral") -> str:
-    """Revisa um trecho ou capítulo com critérios rigorosos de tom científico e normas ABNT."""
-    return f"""Atue como um orientador de pós-graduação e revisor acadêmico experiente.
-Analise e aprimore o seguinte texto acadêmico (Foco: {foco}):
+    """
+    Prompt acadêmico especializado para revisão aprofundada de um capítulo acadêmico,
+    gerando nota qualitativa, diagnóstico de rigor, pontos fortes e lista de melhorias.
+    """
+    return f"""Atue como um Revisor Acadêmico Sênior e membro de banca examinadora.
+Analise detalhadamente o capítulo/trecho abaixo com foco em '{foco}'.
 
+DIRETRIZES DE AVALIAÇÃO:
+1. Impessoalidade e Rigor (NBR 14724): Elimine 1ª pessoa ('eu fiz', 'nós observamos') substituindo por voz passiva sintética ('analisou-se', 'observou-se').
+2. Juízos de valor: Remova advérbios opinativos ('obviamente', 'claramente', 'com certeza') e exija dados empíricos ou fontes.
+3. Citações (NBR 10520:2023): Verifique se os autores entre parênteses estão em caixa baixa/mista (Silva, 2023) e NUNCA em CAIXA ALTA (SILVA, 2023).
+4. Coerência lógica: Avalie a transição entre parágrafos e se as alegações técnicas possuem citação.
+
+TEXTO PARA REVISÃO:
 ---
 {texto}
 ---
 
-Instruções para sua resposta:
-1. Diagnóstico do Tom: Aponte qualquer uso de 1ª pessoa ('eu', 'nós') e reescreva para a 3ª pessoa ou voz passiva impessoal.
-2. Rigor Científico: Indique afirmações que carecem de citação bibliográfica ou evidência factual.
-3. Coesão e Fluidez: Mostre onde a transição entre parágrafos pode ser aprimorada.
-4. Versão Reformulada: Forneça o texto revisado pronto para inclusão no TCC."""
+FORMATO DA SUA RESPOSTA:
+- **Nota Global de Rigor Científico (0 a 100)**
+- **Pontos Fortes do Trecho**
+- **Inadequações Encontradas (com trecho original e sugestão de correção)**
+- **Versão Reescrita e Polida no Padrão ABNT**
+"""
 
 
 @mcp.prompt()
-def formatar_citacao(trecho: str, autor: str, ano: str, pagina: str = "", formato: str = "latex") -> str:
-    """Gera a sintaxe correta de citação direta ou indireta conforme a NBR 10520."""
-    return f"""Gere a citação exata para o formato '{formato}' de acordo com a ABNT NBR 10520:
-- Trecho: "{trecho}"
-- Autor(es): {autor}
+def formatar_citacao(
+    trecho: str,
+    autor: str,
+    ano: str,
+    pagina: str = "",
+    tipo: str = "direta_curta",
+) -> str:
+    """
+    Prompt para gerar o código exato da citação em LaTeX (abnTeX2), Markdown e Typst
+    segundo a NBR 10520:2023.
+    """
+    page_param = f", pagina='{pagina}'" if pagina else ""
+    return f"""Atue como um Especialista em Normas ABNT (NBR 10520:2023).
+Gere os snippets exatos de citação para o trecho abaixo:
+
+- Texto da citação: "{trecho}"
+- Autor: {autor}
 - Ano: {ano}
-- Página: {pagina}
+- Página: {pagina or "Não informada"}
+- Tipo: {tipo} (direta curta <= 3 linhas, direta longa > 3 linhas, ou indireta)
 
-Lembre-se:
-- Citação direta curta (até 3 linhas): no corpo do parágrafo entre aspas.
-- Citação direta longa (+ de 3 linhas): bloco recuado a 4 cm, fonte tamanho 10, espaçamento simples e sem aspas."""
+REGRAS MANDATÓRIAS (NBR 10520:2023):
+- Autores entre parênteses usam apenas inicial maiúscula: ({autor.title()}, {ano}) e NUNCA em CAIXA ALTA.
+- Citação direta curta: no corpo do parágrafo, entre aspas, ponto APÓS os parênteses.
+- Citação direta longa: bloco recuado a 4 cm, tamanho 10, espaçamento 1,0 simples, SEM aspas.
+
+Forneça os códigos prontos para:
+1. **Markdown**
+2. **LaTeX (abnTeX2)**
+3. **Typst**
+"""
 
 
 @mcp.prompt()
-def simular_banca(titulo: str, resumo: str, conclusao: str) -> str:
-    """Simula as perguntas e questionamentos que a banca examinadora fará sobre o trabalho."""
-    return f"""Você é um membro rigoroso da banca avaliadora de TCC.
-Analise a coerência entre a proposta e o fechamento do trabalho:
+def simular_banca(projeto_path: str) -> str:
+    """
+    Prompt para simulação de banca examinadora impiedosa e construtiva,
+    avaliando congruência entre introdução e conclusão, rigor metodológico e perguntas da defesa.
+    """
+    return f"""Atue como o Presidente da Banca Examinadora de Defesa de TCC/Mestrado.
+O candidato submeteu o projeto localizado em: '{projeto_path}'.
 
-Título: {titulo}
-Resumo: {resumo}
-Conclusão: {conclusao}
+Realize uma arguição rigorosa e construtiva cobrindo:
+1. **Alinhamento dos Objetivos:** Os objetivos específicos traçados na introdução foram realmente respondidos na conclusão?
+2. **Replicabilidade Metodológica:** A metodologia possui detalhes suficientes para que outro pesquisador replique o experimento?
+3. **Atualidade da Literatura:** As referências contemplam artigos recentes com DOI ou estão defasadas?
+4. **Armadilhas e Perguntas da Banca:** Formule as 3 perguntas mais difíceis que os membros da banca farão ao estudante na apresentação oral.
 
-Apresente:
-1. Três perguntas difíceis que a banca certamente fará sobre a metodologia e resultados.
-2. Pontos frágeis onde a justificativa ou embasamento parece insuficiente.
-3. Recomendações imediatas para blindar a defesa."""
-
-
-# ==============================================================================
-# RECURSOS (RESOURCES)
-# ==============================================================================
-
-@mcp.resource("abnt://guia/nbr10520")
-def guia_nbr10520() -> str:
-    """Resumo das regras vigentes da ABNT NBR 10520 para citações acadêmicas."""
-    return """# ABNT NBR 10520 - Citações em Documentos
-
-## 1. Citação Indireta (Paráfrase)
-- No texto: De acordo com Silva (2023), o aprendizado federado...
-- Entre parênteses: O aprendizado federado preserva a privacidade (SILVA, 2023).
-
-## 2. Citação Direta Curta (até 3 linhas)
-- Integrada ao texto, obrigatoriamente entre aspas duplas.
-- Exemplo: Segundo Oliveira (2022, p. 45), "a tecnologia amplia os horizontes pedagógicos".
-
-## 3. Citação Direta Longa (mais de 3 linhas)
-- Parágrafo destacado com recuo de 4 cm da margem esquerda.
-- Fonte menor (tamanho 10 ou 11), espaçamento entre linhas simples e SEM aspas.
-
-## 4. Citação de Citação (Apud)
-- Usado apenas quando a obra original não estiver acessível.
-- Exemplo: Turing (1950 apud RUSSELL; NORVIG, 2020, p. 12).
+Apresente um parecer com: Veredito preliminar, Riscos críticos que podem reprovar o trabalho e Ações imediatas de mitigação.
 """
 
 
-@mcp.resource("abnt://guia/nbr14724")
-def guia_nbr14724() -> str:
-    """Resumo da estrutura de trabalhos acadêmicos segundo a ABNT NBR 14724."""
-    return """# ABNT NBR 14724 - Estrutura de Trabalhos Acadêmicos
+# ==============================================================================
+# 3. RECURSOS (@mcp.resource)
+# ==============================================================================
 
-## Elementos Pré-Textuais
-- Capa (Obrigatório)
-- Folha de Rosto (Obrigatório)
-- Errata (Opcional)
-- Dedicatória / Agradecimentos / Epígrafe (Opcionais)
-- Resumo na língua vernácula com palavras-chave (Obrigatório)
-- Resumo em língua estrangeira - Abstract (Obrigatório)
-- Lista de ilustrações (Opcional)
-- Lista de tabelas (Opcional)
-- Lista de abreviaturas e siglas (Opcional)
-- Sumário (Obrigatório)
-
-## Elementos Textuais
-- Introdução (Obrigatório)
-- Desenvolvimento: Fundamentação Teórica, Metodologia e Resultados (Obrigatório)
-- Conclusão / Considerações Finais (Obrigatório)
-
-## Elementos Pós-Textuais
-- Referências (Obrigatório - NBR 6023)
-- Glossário (Opcional)
-- Apêndices: materiais elaborados pelo próprio autor (Opcional)
-- Anexos: documentos de terceiros anexados (Opcional)
-"""
+@mcp.resource("abnt://guia/citacoes")
+def resource_guia_citacoes() -> str:
+    """Guia canônico e síntese das regras da ABNT NBR 10520:2023 (Citações)."""
+    return GUIDE_CITATIONS_NBR10520
 
 
-def main():
+@mcp.resource("abnt://guia/estrutura")
+def resource_guia_estrutura() -> str:
+    """Checklist completo da ABNT NBR 14724:2011 (Estrutura e Paginação de Trabalhos Acadêmicos)."""
+    return GUIDE_STRUCTURE_NBR14724
+
+
+@mcp.resource("abnt://guia/referencias")
+def resource_guia_referencias() -> str:
+    """Síntese das regras da ABNT NBR 6023:2018 (Elaboração de Referências Bibliográficas)."""
+    return GUIDE_REFERENCES_NBR6023
+
+
+@mcp.resource("abnt://template/latex")
+def resource_template_latex() -> str:
+    """Template funcional completo para monografias/TCCs em LaTeX configurado com abnTeX2."""
+    return get_latex_template()
+
+
+@mcp.resource("abnt://template/typst")
+def resource_template_typst() -> str:
+    """Template moderno completo para trabalhos acadêmicos em Typst com regras ABNT nativas."""
+    return get_typst_template()
+
+
+@mcp.resource("abnt://template/markdown")
+def resource_template_markdown() -> str:
+    """Template acadêmico para Pandoc Markdown com cabeçalho YAML e suporte a CSL ABNT."""
+    return get_markdown_template()
+
+
+def main() -> None:
+    """Ponto de entrada para execução via CLI ou uvx abnt-mcp."""
     mcp.run()
 
 
