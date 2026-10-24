@@ -603,3 +603,46 @@ def test_comprehensive_spec_audit_institutional_rules_and_persistent_reports(tmp
     assert audit_2["institutional_compliance"]["is_compliant"] is True
     assert audit_2["is_compliant"] is True
     assert audit_2["submission_readiness"] in {"READY", "READY_WITH_WARNINGS"}
+
+
+def test_sdd_release_version_changelog_and_privacy_invariants() -> None:
+    """
+    Garante:
+    1. Paridade estrita entre pyproject.toml, abnt_mcp.__version__ e CHANGELOG.md;
+    2. Presença da seção [Unreleased] e da versão atual no CHANGELOG.md;
+    3. Ausência de e-mail pessoal exposto em authors no pyproject.toml (PEP 621 privacy);
+    4. Existência dos artefatos de automação de Release (.github/workflows/release.yml e .github/release.yml).
+    """
+    from abnt_mcp import __version__
+
+    pyproject_file = REPO_ROOT / "pyproject.toml"
+    changelog_file = REPO_ROOT / "CHANGELOG.md"
+    release_wf = REPO_ROOT / ".github" / "workflows" / "release.yml"
+    release_cfg = REPO_ROOT / ".github" / "release.yml"
+
+    assert pyproject_file.is_file()
+    assert changelog_file.is_file()
+    assert release_wf.is_file()
+    assert release_cfg.is_file()
+
+    pyproject_text = pyproject_file.read_text(encoding="utf-8")
+    m_ver = re.search(r'^version\s*=\s*"([^"]+)"', pyproject_text, re.MULTILINE)
+    assert m_ver is not None, "Campo version não encontrado no pyproject.toml"
+    pyproject_version = m_ver.group(1)
+
+    assert pyproject_version == __version__, (
+        f"Desvio de versão: pyproject.toml ({pyproject_version}) != abnt_mcp.__version__ ({__version__})"
+    )
+
+    # Verifica que authors no pyproject.toml NÃO expõe campo email (anti-spam PEP 621)
+    m_authors = re.search(r"authors\s*=\s*\[(.*?)\]", pyproject_text, re.DOTALL)
+    assert m_authors is not None
+    assert "email" not in m_authors.group(1).lower(), (
+        "Violação de privacidade: não inclua 'email' em authors no pyproject.toml."
+    )
+
+    changelog_text = changelog_file.read_text(encoding="utf-8")
+    assert "## [Unreleased]" in changelog_text, "CHANGELOG.md deve manter a seção '## [Unreleased]'."
+    assert f"## [{__version__}]" in changelog_text, (
+        f"A versão atual ({__version__}) deve estar documentada em '## [{__version__}]' no CHANGELOG.md."
+    )

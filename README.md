@@ -6,7 +6,7 @@
 [![FastMCP](https://img.shields.io/badge/FastMCP-4.1.3-green)](https://gofastmcp.com)
 [![ABNT Standard](https://img.shields.io/badge/ABNT-NBR%2014724%20%7C%2010520%20%7C%206023%20%7C%206022-darkred)](https://www.abnt.org.br/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-75%20passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-76%20passed-brightgreen)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-86%25-brightgreen)](tests/)
 [![CI/CD](https://github.com/PedroSmaxY/abnt-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/PedroSmaxY/abnt-mcp/actions/workflows/ci.yml)
 
@@ -134,9 +134,13 @@ O servidor expõe formalmente 18 ferramentas, 3 prompts orientados e 8 recursos 
 
 O servidor é compatível com Python `>=3.10` e preparado para execução direta através do gerenciador de ambientes [uv](https://docs.astral.sh/uv/):
 
-### Execução Instantânea (Zero Configuração)
+### Execução Instantânea via `uvx` (Zero Configuração)
 ```bash
+# Via PyPI:
 uvx abnt-mcp
+
+# Ou diretamente da Release oficial no GitHub:
+uvx --from git+https://github.com/PedroSmaxY/abnt-mcp@v0.2.0 abnt-mcp
 ```
 
 ### Instalação via Gerenciador de Pacotes
@@ -213,13 +217,13 @@ uv run pytest -v --cov=abnt_mcp --cov-report=term-missing
 ```
 
 ```text
-============================= 75 passed in 1.25s =============================
+============================= 76 passed in 1.25s =============================
 tests/test_advisory.py (4 testes)     -> Consulta Crossref/SciELO, DOI e Simulador de Banca
 tests/test_compiler.py (4 testes)     -> Linter de ambientes, tratamento de logs e engines
 tests/test_diagnostics.py (6 testes)  -> Estrutura NBR 14724, auditoria de citações e tom científico
 tests/test_edge_cases.py (23 testes)  -> Casos de borda (paginação NBR 14724, autores compostos, localizadores, IBGE vs ABNT)
 tests/test_parsers.py (9 testes)      -> Extratores LaTeX/MD/Typst, validação de caixa alta e extração de PDF
-tests/test_sdd.py (12 testes)         -> Trava Anti-Drift SDD, scaffolding, PDF/logo institucional, ilustrações e relatórios
+tests/test_sdd.py (13 testes)         -> Trava Anti-Drift SDD, CHANGELOG/SemVer, scaffolding, PDF/logo institucional e relatórios
 tests/test_server.py (6 testes)       -> Registro e execução de tools, prompts e resources
 tests/test_writing.py (11 testes)     -> Citações 2023, Referências 6023, Resumo, Figuras e Tabelas
 ```

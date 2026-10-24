@@ -71,11 +71,23 @@ As mensagens de *commit* devem ser redigidas de forma imperativa, clara e refere
 - `docs`: Atualização de `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md` ou docstrings.
 - `ci`: Ajustes nos pipelines de integração contínua (`.github/workflows/`).
 
-### 3.3. Padrão de Submissão de *Pull Requests* (PRs)
+### 3.3. Padrão de Submissão de *Pull Requests* (PRs) e Registro no `CHANGELOG.md`
 Todo *Pull Request* submetido à *branch* `main` deve preencher integralmente o modelo `.github/PULL_REQUEST_TEMPLATE.md`, apresentando obrigatoriamente:
 1. **Justificativa Científica / Normativa:** Indicação explícita da norma (ex.: ABNT NBR 10520:2023, Seção 4.2) ou motivação arquitetural.
 2. **Tabela de Rastreabilidade SDD:** Mapeamento entre o arquivo atualizado em `specs/`, o `Rule ID` ou `@mcp.tool` afetado e o teste correspondente em `tests/`.
-3. **Conformidade Multiplataforma:** Aprovação integral na matriz do GitHub Actions (Ubuntu Linux e Windows Server sob Python 3.10, 3.11 e 3.12).
+3. **Atualização Obrigatória do `CHANGELOG.md`:** Toda modificação em `src/`, `specs/` ou `pyproject.toml` deve ser documentada em `CHANGELOG.md` (verificada automaticamente pelo GitHub Actions em Pull Requests e pela suíte `tests/test_sdd.py`).
+4. **Conformidade Multiplataforma:** Aprovação integral na matriz do GitHub Actions (Ubuntu Linux e Windows Server sob Python 3.10, 3.11 e 3.12).
+
+### 3.4. Governança de Releases SemVer e Publicação `uvx` / PyPI
+O lançamento de versões segue o **Versionamento Semântico (SemVer)** sincronizado às especificações:
+- **MAJOR (`X.0.0`):** Alteração incompatível no contrato de ferramentas (`specs/03-mcp-tools-contract.spec.md`) ou no schema `abnt.spec.json`.
+- **MINOR (`0.Y.0`):** Adição de nova ferramenta `@mcp.tool`, novo recurso ou nova regra em `NORMATIVE_RULES`.
+- **PATCH (`0.0.Z`):** Correções de validadores, regexes normativas ou documentação sem quebra de contrato.
+
+Ao criar e enviar uma tag `vX.Y.Z` (`git tag v0.2.0 && git push origin v0.2.0`), o workflow `.github/workflows/release.yml`:
+1. Verifica a paridade estrita entre a tag (`vX.Y.Z`), `pyproject.toml`, `src/abnt_mcp/__init__.py` e a seção `## [X.Y.Z]` do `CHANGELOG.md`;
+2. Constrói os pacotes `.whl` e `.tar.gz` via `uv build` e executa um teste de fumaça com `uvx`;
+3. Publica a **GitHub Release** oficial e realiza o upload para o **PyPI via Trusted Publishing (OIDC)**.
 
 ---
 

@@ -28,7 +28,8 @@ Sempre que receber uma tarefa neste repositório, execute rigorosamente esta seq
    - Registre ou atualize o identificador canônico em `NORMATIVE_RULES` (`src/abnt_mcp/config.py`) e os modelos Pydantic em `src/abnt_mcp/models.py`.
 3. **Etapa 3 — Implementar nos Pilares e Servidor (`pillars/`, `parsers/`, `server.py`):**
    - Implemente a lógica mantendo a separação modular dos 4 pilares + motor SDD (`diagnostics.py`, `writing.py`, `compiler.py`, `advisory.py`, `spec.py`).
-4. **Etapa 4 — Verificar com Testes Rastreáveis (`tests/`):**
+4. **Etapa 4 — Verificar com Testes Rastreáveis e Registrar no `CHANGELOG.md` (`tests/` & `CHANGELOG.md`):**
+   - Registre obrigatoriamente a alteração em `CHANGELOG.md` (sob `## [Unreleased]` ou na seção da versão sendo lançada). A esteira de CI falha automaticamente em Pull Requests que alterem `src/`, `specs/` ou `pyproject.toml` sem atualizar `CHANGELOG.md`.
    - Adicione testes cobrindo a nova cláusula/funcionalidade e execute:
      ```bash
      uv run pytest -v --cov=abnt_mcp --cov-report=term-missing
@@ -50,11 +51,14 @@ Jamais gere código, templates, prompts ou testes que violem estas regras vigent
 
 ---
 
-## 4. Padrão de Commits, Branches e Pull Requests
+## 4. Padrão de Commits, Branches, Pull Requests e Releases (`uvx` / SemVer)
 
-- **Branches:** `spec/<escopo>`, `feat/<escopo>`, `fix/<rule-id>`, `docs/<escopo>`, `test/<escopo>`.
+- **Branches:** `spec/<escopo>`, `feat/<escopo>`, `fix/<rule-id>`, `docs/<escopo>`, `test/<escopo>`, `chore/<escopo>`.
 - **Commits Semânticos:**
   - `spec(nbr10520): adicionar cláusula NBR10520-R04 ao catálogo`
   - `feat(spec): implementar auditoria de objetivos específicos em abnt.spec.json`
   - `fix(NBR14724-R02): corrigir detecção de paginação em elementos pré-textuais`
-- **Pull Requests:** Preencha integralmente o template `.github/PULL_REQUEST_TEMPLATE.md`, preenchendo a tabela de rastreabilidade (`Spec Atualizada` -> `Rule ID / Tool` -> `Teste`).
+- **Pull Requests:** Preencha integralmente o template `.github/PULL_REQUEST_TEMPLATE.md`, preenchendo a tabela de rastreabilidade (`Spec Atualizada` -> `Rule ID / Tool` -> `Teste`) e confirmando a atualização do `CHANGELOG.md`.
+- **Releases e Privacidade de Metadados (`pyproject.toml` & `CHANGELOG.md`):**
+  - **Paridade de Versão:** A versão em `pyproject.toml`, `src/abnt_mcp/__init__.py` (`__version__`) e a última seção versionada em `CHANGELOG.md` (`## [X.Y.Z]`) devem estar estritamente sincronizadas.
+  - **Privacidade PEP 621:** Jamais adicione chaves `email` em `authors` no `pyproject.toml` (prevenção contra scrapers de spam no PyPI). Utilize exclusivamente `[project.urls]` apontando para o GitHub.
