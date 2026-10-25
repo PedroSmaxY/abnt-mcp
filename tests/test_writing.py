@@ -158,13 +158,14 @@ def test_format_figure():
     assert "\\caption{Arquitetura do Modelo}" in res["snippets"]["latex"]
     assert "images/diagrama.png" in res["snippets"]["latex"]
     assert "Fonte: Dados da pesquisa (2026)." in res["snippets"]["markdown"]
-    # Blindagem contra órfãos
-    assert "#block(breakable: false)" in res["snippets"]["typst"]
+    # Blindagem contra órfãos e respiro de 1.2cm com acoplamento da fonte
+    assert "#block(spacing: 1.2cm, breakable: false)" in res["snippets"]["typst"]
+    assert "#v(0.2cm)" in res["snippets"]["typst"]
 
 
 def test_format_table_and_quadro():
     from abnt_mcp.pillars.writing import format_table_abnt
-    # Tabela (IBGE: laterais abertas)
+    # Tabela (IBGE: laterais abertas e linhas horizontais no topo, cabeçalho e base)
     res_tab = format_table_abnt(
         title="Distribuição Amostral",
         headers=["Categoria", "Quantidade"],
@@ -177,7 +178,12 @@ def test_format_table_and_quadro():
     assert "Tabela 1 – Distribuição Amostral" in res_tab["snippets"]["markdown"]
     assert "\\toprule" in res_tab["snippets"]["latex"]
     assert 'kind: "quadro"' not in res_tab["snippets"]["typst"]
-    assert "#block(breakable: false)" in res_tab["snippets"]["typst"]
+    assert "#block(spacing: 1.2cm, breakable: false)" in res_tab["snippets"]["typst"]
+    assert "left: none" in res_tab["snippets"]["typst"]
+    assert "right: none" in res_tab["snippets"]["typst"]
+    assert "top: if y == 0 { 0.8pt }" in res_tab["snippets"]["typst"]
+    assert "bottom: if y == 2 { 0.8pt }" in res_tab["snippets"]["typst"]
+    assert "#v(0.2cm)" in res_tab["snippets"]["typst"]
 
     # Quadro (ABNT: bordas fechadas)
     res_quad = format_table_abnt(
@@ -193,7 +199,9 @@ def test_format_table_and_quadro():
     assert "\\hline" in res_quad["snippets"]["latex"]
     assert 'kind: "quadro"' in res_quad["snippets"]["typst"]
     assert "supplement: [Quadro]" in res_quad["snippets"]["typst"]
-    assert "#block(breakable: false)" in res_quad["snippets"]["typst"]
+    assert "#block(spacing: 1.2cm, breakable: false)" in res_quad["snippets"]["typst"]
+    assert "stroke: 0.5pt" in res_quad["snippets"]["typst"]
+    assert "#v(0.2cm)" in res_quad["snippets"]["typst"]
 
 
 def test_format_equation_nbr14724_r04():
@@ -219,14 +227,15 @@ def test_format_equation_nbr14724_r04():
     assert res["equation_number"] == 1
     assert "Conforme apresentado na Equação (1)" in res["text_call_example"]
 
-    # Typst: #block(breakable: false), $ E = m c^2 $ <eq:energia>, e first-line-indent: 0cm na frase explicativa
+    # Typst: #block(spacing: 1.2cm, breakable: false), $ E = m c^2 $ <eq:energia>, e first-line-indent: 0cm na frase explicativa
     typ_code = res["snippets"]["typst"]
-    assert "#block(breakable: false)" in typ_code
+    assert "#block(spacing: 1.2cm, breakable: false)" in typ_code
     assert "$ E = m c^2 $ <eq:energia>" in typ_code
     assert "first-line-indent: 0cm" in typ_code
-    assert "leading: 1.061em" in typ_code
+    assert "leading: 0.49em" in typ_code
+    assert "#text(size: 10pt)" in typ_code
     assert "onde:\\" in typ_code
-    assert "E é a energia (Joules);" in typ_code
+    assert "#h(0.5cm) E é a energia (Joules);" in typ_code
 
     # LaTeX: \begin{equation}, \noindent onde:, e \item
     tex_code = res["snippets"]["latex"]

@@ -43,6 +43,15 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
   - Inclusão de `"ficha catalografica"` e `"lista de quadros"` em `OPTIONAL_ELEMENTS` e `ELEMENT_PATTERNS` para paridade integral entre `check_structure`, `extract_institutional_pattern_from_pdf` e `audit_research_spec`.
 
 ### Corrigido
+- **Correção Estrutural das Bordas da Tabela IBGE (`src/abnt_mcp/pillars/writing.py`):**
+  - Substituição da regra anterior de stroke por coordenadas de célula que zerava as bordas da coluna 0 pelo stroke canônico das Normas Tabulares do IBGE (1993 / `IBGE1993-R01`): linhas horizontais no topo (`0.8pt`), abaixo do cabeçalho (`0.5pt`) e fechamento da base (`0.8pt`), com laterais e divisórias verticais internas abertas (`left: none, right: none`).
+- **Eliminação de Vão Excessivo entre Ilustrações/Tabelas e a "Fonte:" (`src/abnt_mcp/pillars/spec.py`, `src/abnt_mcp/templates/typst.py` e `src/abnt_mcp/pillars/writing.py`):**
+  - Remoção de `#show figure: set block(spacing: 1.2cm)` do preâmbulo geral que afastava a indicação de `Fonte:` da imagem/tabela.
+  - Transferência do respiro normativo de 1,2 cm para o contêiner envoltório `#block(spacing: 1.2cm, breakable: false)` e acoplamento imediato da linha de fonte com `#v(0.2cm)` (ABNT NBR 14724 item 5.8).
+- **Legenda Compacta pós-Equação (`src/abnt_mcp/pillars/writing.py`):**
+  - Estruturação da oração explicativa de variáveis introduzida por "onde:" em fonte 10pt, entrelinha simples (`leading: 0.49em`) e recuo suave dos itens com `#h(0.5cm)` (ABNT NBR 14724 item 5.9 e `NBR14724-R04`).
+- **Lista de Siglas Direta sem Grid Artificial (`src/abnt_mcp/pillars/spec.py`):**
+  - Substituição do `#grid` de 2 colunas por linhas diretas alinhadas à esquerda com recuo zero e travessão colado (`*SIGLA* -- Descrição \`), eliminando vãos horizontais excessivos.
 - **Blindagem Anti-Contaminação do Cabeçalho da Capa (`src/abnt_mcp/parsers/pdf_reader.py`):**
   - Remoção da captura genérica por caixa alta em `infer_institutional_profile_from_pdf` que incluía erroneamente nomes de autores e títulos em caixa alta no cabeçalho da universidade, restringindo a detecção a palavras-chave estritamente institucionais e interrompendo a leitura imediatamente caso linhas não institucionais sejam encontradas.
 - **Delimitação da Varredura Pré-Textual em PDFs (`src/abnt_mcp/parsers/pdf_reader.py`):**

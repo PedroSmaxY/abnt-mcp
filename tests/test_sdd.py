@@ -779,7 +779,7 @@ def test_typst_abnt_spacing_top_caption_and_reactive_outlines(tmp_path: Path) ->
     assert "leading: 1.061em" in main_typ
     assert "leading: 0.49em" in main_typ
     assert "v(0.8cm)" in main_typ
-    assert "show figure: set block(spacing: 1.2cm)" in main_typ
+    assert "show figure.caption: set text(size: 10pt)" in main_typ
 
     # Compilação limpa sem figuras nem tabelas: nenhuma lista vazia deve ser gerada
     comp_clean = compile_tcc(str(proj_dir), engine="typst")
@@ -963,11 +963,9 @@ def test_cover_parser_anti_contamination_and_dynamic_city(tmp_path: Path) -> Non
     assert "CONCEITOS DE UX" not in main_typ
     assert "ANA CAROLINA RAMOS" in main_typ
 
-    # Garante que a lista de siglas usa #grid com travessão em vez de #table com vão rígido
-    assert "#grid(" in main_typ
-    assert "columns: (auto, 1fr)" in main_typ
-    assert "column-gutter: 1.2em" in main_typ
-    assert "[-- Associação Brasileira de Normas Técnicas]" in main_typ
+    # Garante que a lista de siglas usa alinhamento direto com travessão colado e sem vãos artificiais
+    assert "*ABNT* -- Associação Brasileira de Normas Técnicas" in main_typ
+    assert "*IBGE* -- Instituto Brasileiro de Geografia e Estatística" in main_typ
     assert "#table(columns: (2.5cm, 1fr)" not in main_typ
 
     # 3. Compilação Typst e auditoria de paginação

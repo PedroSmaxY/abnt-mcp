@@ -398,15 +398,13 @@ Registro meus sinceros agradecimentos à {inst}, ao(à) orientador(a) {advisor} 
             post_abstract_chunks.append("""// --- LISTA DE ABREVIATURAS E SIGLAS (NBR 14724) ---
 #align(center)[*LISTA DE ABREVIATURAS E SIGLAS*]
 #v(1cm)
-#grid(
-  columns: (auto, 1fr),
-  column-gutter: 1.2em,
-  row-gutter: 1em,
-  [*ABNT*], [-- Associação Brasileira de Normas Técnicas],
-  [*IBGE*], [-- Instituto Brasileiro de Geografia e Estatística],
-  [*MCP*], [-- Model Context Protocol],
-  [*SDD*], [-- Spec-Driven Development],
-)
+#align(left)[
+  #set par(first-line-indent: 0cm, leading: 1.061em)
+  *ABNT* -- Associação Brasileira de Normas Técnicas \\
+  *IBGE* -- Instituto Brasileiro de Geografia e Estatística \\
+  *MCP* -- Model Context Protocol \\
+  *SDD* -- Spec-Driven Development
+]
 #pagebreak()
 """)
 
@@ -610,7 +608,6 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
 #set heading(numbering: "1.1")
 #set math.equation(numbering: "(1)")
 #show figure: set figure.caption(position: top)
-#show figure: set block(spacing: 1.2cm)
 #show figure.caption: set text(size: 10pt)
 
 // --- REGRAS DE DIAGRAMAÇÃO ABNT (NBR 14724 itens 5.2.1 e 5.2.2) ---

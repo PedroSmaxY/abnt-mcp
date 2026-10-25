@@ -398,11 +398,12 @@ def format_figure_abnt(
 
     # Snippet em Typst (com blindagem contra quebra órfã entre imagem e fonte)
     typst_code = (
-        f"#block(breakable: false)[\n"
+        f"#block(spacing: 1.2cm, breakable: false)[\n"
         f"  #figure(\n"
         f'    image("{clean_path}", width: 80%),\n'
         f"    caption: [{caption.strip()}],\n"
         f"  )\n"
+        f"  #v(0.2cm)\n"
         f"  #align(center)[#text(size: 10pt)[{source_fig}]]\n"
         f"]"
     )
@@ -493,19 +494,32 @@ def format_table_abnt(
         f"\\end{{{category.lower()}}}"
     )
 
-    # 3. Typst (com blindagem contra quebra órfã entre tabela/quadro e fonte)
+    # 3. Typst (com blindagem contra quebra órfã entre tabela/quadro e fonte e stroke canônico IBGE 1993)
     quadro_kind_attr = '\n    kind: "quadro",\n    supplement: [Quadro],' if not is_table else ""
+    if is_table:
+        stroke_expr = (
+            f"(x, y) => (\n"
+            f"        top: if y == 0 {{ 0.8pt }} else if y == 1 {{ 0.5pt }} else {{ none }},\n"
+            f"        bottom: if y == {len(rows)} {{ 0.8pt }} else {{ none }},\n"
+            f"        left: none,\n"
+            f"        right: none,\n"
+            f"      )"
+        )
+    else:
+        stroke_expr = "0.5pt"
+
     typst_code = (
-        f"#block(breakable: false)[\n"
+        f"#block(spacing: 1.2cm, breakable: false)[\n"
         f"  #figure(\n"
         f"    table(\n"
         f"      columns: {len(headers)},\n"
-        f"      stroke: {'(x, y) => if x == 0 or x == ' + str(len(headers)) + ' { none } else { 0.5pt }' if is_table else '0.5pt'},\n"
+        f"      stroke: {stroke_expr},\n"
         f"      " + ", ".join(f"[{h}]" for h in headers) + ",\n"
         + ",\n".join(f"      {', '.join(f'[{cell}]' for cell in r)}" for r in rows) + "\n"
         f"    ),\n"
         f"    caption: [{title.strip()}],{quadro_kind_attr}\n"
         f"  )\n"
+        f"  #v(0.2cm)\n"
         f"  #align(center)[#text(size: 10pt)[{source_label}]]\n"
         f"]"
     )
@@ -539,8 +553,8 @@ def format_equation_abnt(
     - Destaque no texto com entrelinhas maior.
     - Quando destacadas, devem ser centralizadas e numeradas consecutivamente entre parênteses à direita.
     - A explicação das variáveis ('onde:' ou 'em que:') é continuação da sentença matemática,
-      portanto NÃO deve receber recuo de parágrafo (first-line-indent: 0cm).
-    - Envolvimento com #block(breakable: false) em Typst para blindar contra órfãos.
+      portanto NÃO deve receber recuo de parágrafo (first-line-indent: 0cm), estruturada em entrelinha simples (0.49em) e tamanho 10pt.
+    - Envolvimento com #block(spacing: 1.2cm, breakable: false) em Typst para blindar contra órfãos.
     """
     clean_expr = expression.strip()
     clean_label = label.strip() if label else f"eq:equacao{equation_number}"
@@ -561,19 +575,25 @@ def format_equation_abnt(
 
     # 1. Typst snippet
     if var_list:
-        vars_typst = "\\\n    ".join(var_list)
+        vars_typst = "\\\n      ".join(
+            f"#h(0.5cm) {v}" if not v.startswith("#h(") else v
+            for v in var_list
+        )
         typst_code = (
-            f"#block(breakable: false)[\n"
+            f"#block(spacing: 1.2cm, breakable: false)[\n"
             f"  $ {clean_expr} $ <{clean_label}>\n"
-            f"  #par(first-line-indent: 0cm, leading: 1.061em)[\n"
-            f"    onde:\\\n"
-            f"    {vars_typst}\n"
+            f"  #v(0.3cm)\n"
+            f"  #par(first-line-indent: 0cm, leading: 0.49em)[\n"
+            f"    #text(size: 10pt)[\n"
+            f"      onde:\\\n"
+            f"      {vars_typst}\n"
+            f"    ]\n"
             f"  ]\n"
             f"]"
         )
     else:
         typst_code = (
-            f"#block(breakable: false)[\n"
+            f"#block(spacing: 1.2cm, breakable: false)[\n"
             f"  $ {clean_expr} $ <{clean_label}>\n"
             f"]"
         )
