@@ -60,6 +60,12 @@ NORMATIVE_RULES: dict[str, dict[str, str]] = {
         "title": "Ilustrações com título superior, chamada textual prévia e fonte inferior",
         "severity": "warning",
     },
+    "NBR14724-R04": {
+        "standard": "ABNT NBR 14724:2011",
+        "clause": "Seção 5.9",
+        "title": "Equações e fórmulas destacadas, centralizadas, numeradas à direita e definição de variáveis sem recuo",
+        "severity": "warning",
+    },
     "NBR6022-R01": {
         "standard": "ABNT NBR 6022:2018",
         "clause": "Seção 5",

@@ -68,6 +68,33 @@ class ReferenceInput(BaseModel):
     )
 
 
+class EquationInput(BaseModel):
+    """Parâmetros de formatação de equação conforme ABNT NBR 14724:2011 item 5.9 e NBR14724-R04."""
+    expression: str = Field(..., description="Expressão matemática da equação")
+    equation_number: int | str = Field(default=1, description="Número consecutivo da equação")
+    variable_definitions: list[str] | str | None = Field(
+        default=None,
+        description="Definições/descrições das variáveis introduzidas por 'onde:' (sem recuo de parágrafo)"
+    )
+    label: str | None = Field(default=None, description="Identificador ou rótulo para referência cruzada")
+    target_format: Literal["typst", "latex", "markdown"] = Field(
+        default="typst",
+        description="Formato de saída prioritário"
+    )
+
+
+class FormattedEquationResult(BaseModel):
+    """Resultado da formatação de equação conforme ABNT NBR 14724 (NBR14724-R04)."""
+    standard: str = "ABNT NBR 14724:2011"
+    equation_number: int | str
+    expression: str
+    target_format: str
+    selected_snippet: str
+    text_call_example: str
+    rules_applied: list[str]
+    snippets: dict[str, str]
+
+
 class DiagnosticItem(BaseModel):
     """Modelo unificado de diagnóstico (diferencia regra normativa estrita de heurística editorial)."""
     rule_id: str = Field(..., description="ID canônico (ex: 'NBR10520-R01') ou código heurístico ('HEURISTIC-TONE-01')")

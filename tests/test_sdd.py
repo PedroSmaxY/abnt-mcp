@@ -776,7 +776,10 @@ def test_typst_abnt_spacing_top_caption_and_reactive_outlines(tmp_path: Path) ->
     assert "first-line-indent: (amount: 1.25cm, all: true)" in main_typ
     assert "figure.caption(position: top)" in main_typ
     assert "pagebreak(weak: true)" in main_typ
-    assert "leading: 0.75em" in main_typ
+    assert "leading: 1.061em" in main_typ
+    assert "leading: 0.49em" in main_typ
+    assert "v(0.8cm)" in main_typ
+    assert "show figure: set block(spacing: 1.2cm)" in main_typ
 
     # Compilação limpa sem figuras nem tabelas: nenhuma lista vazia deve ser gerada
     comp_clean = compile_tcc(str(proj_dir), engine="typst")

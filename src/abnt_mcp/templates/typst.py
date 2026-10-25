@@ -14,28 +14,31 @@ TYPST_TEMPLATE = r"""// ========================================================
   header: none,
 )
 
-// Tipografia: Arial ou Times New Roman, Tamanho 12pt, Espaçamento 1.5x ABNT (leading 0.75em), Recuo 1.25cm
+// Tipografia: Arial ou Times New Roman, Tamanho 12pt, Espaçamento 1.5x ABNT (leading 1.061em), Recuo 1.25cm
 #set text(font: "Times New Roman", size: 12pt, lang: "pt", region: "BR")
 #set par(
   justify: true,
-  leading: 0.75em,
+  leading: 1.061em,
   first-line-indent: (amount: 1.25cm, all: true)
 )
 #set heading(numbering: "1.1")
+#set math.equation(numbering: "(1)")
 #show figure: set figure.caption(position: top)
+#show figure: set block(spacing: 1.2cm)
+#show figure.caption: set text(size: 10pt)
 
 // Formatação de Títulos e Quebra Obrigatória de Capítulos Primários (NBR 14724 / NBR 6024)
 #show heading.where(level: 1): it => {
   pagebreak(weak: true)
-  v(1.5cm)
+  v(1.0cm)
   it
-  v(1.5cm)
+  v(0.8cm)
 }
 
 #show heading.where(level: 2): it => {
-  v(1cm)
-  it
   v(0.8cm)
+  it
+  v(0.6cm)
 }
 
 // -----------------------------------------------------------------------------
@@ -73,7 +76,7 @@ TYPST_TEMPLATE = r"""// ========================================================
   #align(right)[
     #block(width: 50%)[
       #set text(size: 10pt)
-      #set par(leading: 1em, justify: true)
+      #set par(leading: 0.49em, justify: true, first-line-indent: 0cm)
       Trabalho de Conclusão de Curso apresentado ao Curso de Ciência da Computação da Universidade Exemplo como requisito parcial para obtenção do título de Bacharel.\
       \
       Orientador: Prof. Dr. Nome do Orientador
@@ -89,11 +92,12 @@ TYPST_TEMPLATE = r"""// ========================================================
 // Resumo (Obrigatório - NBR 6028)
 #align(center)[#text(weight: "bold")[RESUMO]]
 #v(1cm)
-#set par(first-line-indent: 0cm, justify: true)
+#par(first-line-indent: 0cm, leading: 0.49em, justify: true)[
 Este trabalho sintetiza o desenvolvimento de ferramentas baseadas no Model Context Protocol. Apresenta-se o objetivo de aprimorar a automação de escrita técnica segundo a NBR 14724. Utilizou-se como metodologia a análise de conformidade de código e testes automatizados. Os resultados demonstram redução significativa de erros de citação e inconsistências tipográficas. Conclui-se que a padronização orientada a ferramentas inteligentes potencializa o rigor e a produtividade científica.
 
 #v(1cm)
 *Palavras-chave:* Normas ABNT; Model Context Protocol; Escrita Científica; Automação Acadêmica.
+]
 
 #pagebreak()
 

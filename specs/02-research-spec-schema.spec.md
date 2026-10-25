@@ -129,15 +129,22 @@ Define o esqueleto estrutural esperado do manuscrito:
 
 Para geração de projetos e compilação em formato Typst (`scaffold_academic_project` e `abnt://template/typst`), os templates devem observar estritamente:
 
-1. **Quebra de Página em Capítulos Primários (`NBR14724` item 5.2.1):**
-   - Títulos primários (`level: 1`) iniciam obrigatoriamente em folha distinta via `#show heading.where(level: 1): it => { pagebreak(weak: true); ... }`.
-2. **Posição de Legendas (`NBR14724` item 5.8 / `IBGE 1993`):**
-   - Identificação de ilustrações, tabelas e quadros posicionada no topo via `#show figure: set figure.caption(position: top)`. A fonte permanece indicada na base.
+1. **Quebra de Página e Respiro de Capítulos e Seções (`NBR14724` itens 5.2.1 e 5.2.2):**
+   - Títulos primários (`level: 1`) iniciam obrigatoriamente em folha distinta com respiro inferior normativo de 1,5 linha (`0.8cm`): `#show heading.where(level: 1): it => { pagebreak(weak: true); v(1.0cm); it; v(0.8cm) }`.
+   - Títulos secundários (`level: 2`) observam respiro proporcional: `#show heading.where(level: 2): it => { v(0.8cm); it; v(0.6cm) }`.
+2. **Posição de Legendas e Blindagem de Fonte Órfã (`NBR14724` item 5.8 / `IBGE 1993`):**
+   - Identificação de ilustrações, tabelas e quadros posicionada no topo via `#show figure: set figure.caption(position: top)`, com tamanho 10pt (`#show figure.caption: set text(size: 10pt)`) e respiro em bloco (`#show figure: set block(spacing: 1.2cm)`).
+   - Encapsulamento de figuras/tabelas e sua respectiva indicação de `Fonte:` no mesmo bloco inseparável (`#block(breakable: false)`), impedindo que a fonte quebre para a folha seguinte.
 3. **Recuo de Parágrafos ABNT:**
    - Recuo obrigatório de 1,25 cm em todos os parágrafos de texto, inclusive no primeiro parágrafo após cada título, via `#set par(..., first-line-indent: (amount: 1.25cm, all: true))`.
-4. **Espaçamento Entrelinhas Calibrado:**
-   - Entrelinhas 1,5 real ABNT configurado no Typst como `#set par(leading: 0.75em)` (evitando valores literais `leading: 1.5em` que quadruplicam o entrelinhas tipográfico).
+4. **Espaçamento Entrelinhas Matematicamente Calibrado (NBR 14724 item 5.2):**
+   - Corpo do texto (espaçamento 1,5): `#set par(leading: 1.061em)` (resultando em exatos 20,68 pt de distância baseline-to-baseline, em paridade de 0,000 pt com o Word 1,5 em Times New Roman 12pt).
+   - Espaçamento simples (Resumo, Abstract, Folha de Rosto, Citações Longas e Notas): `leading: 0.49em` (exatos 13,8 pt).
 5. **Listas Pré-Textuais Reativas por Introspecção (`context query(...)`):**
    - As listas de Ilustrações (`figure.where(kind: image)`), Tabelas (`figure.where(kind: table)`) e Quadros (`figure.where(kind: "quadro")`) são geradas de forma condicional/reativa: só aparecem no PDF se houver itens presentes no texto, evitando páginas em branco ou listas vazias com títulos órfãos.
 6. **Lista de Abreviaturas e Siglas com Diagramação Fluida (`#grid`):**
    - A Lista de Siglas utiliza `#grid(columns: (auto, 1fr), column-gutter: 1.2em, row-gutter: 1em, ...)` com travessão (`--`), adaptando-se dinamicamente à largura de cada sigla sem criar vãos horizontais excessivos e rígidos.
+7. **Equações com Definição de Variáveis (`NBR14724-R04` / item 5.9):**
+   - Equações centralizadas e numeradas à direita encapsuladas em `#block(breakable: false)`. O texto explicativo posterior ("onde $x$ denota...") possui recuo zero na primeira linha (`first-line-indent: 0cm`) por constituir a continuação do período.
+8. **Blindagem Normativa de Resumo e Abstract (NBR 6028:2021):**
+   - O Resumo e Abstract são redigidos em parágrafo único contínuo com alinhamento justificado, sem recuo na primeira linha (`first-line-indent: 0cm`) e espaçamento simples (`leading: 0.49em`). O recuo de 1,25 cm é estritamente proibido nesta seção.
