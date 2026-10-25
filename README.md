@@ -6,8 +6,8 @@
 [![FastMCP](https://img.shields.io/badge/FastMCP-4.1.3-green)](https://gofastmcp.com)
 [![ABNT Standard](https://img.shields.io/badge/ABNT-NBR%2014724%20%7C%2010520%20%7C%206023%20%7C%206022-darkred)](https://www.abnt.org.br/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-76%20passed-brightgreen)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-86%25-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-80%20passed-brightgreen)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-87%25-brightgreen)](tests/)
 [![CI/CD](https://github.com/PedroSmaxY/abnt-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/PedroSmaxY/abnt-mcp/actions/workflows/ci.yml)
 
 ---
@@ -33,7 +33,7 @@ O servidor foi arquitetado sob auditoria estrita das seguintes normas vigentes:
 
 | Norma / Documento | Ano / Edição | Escopo no Servidor MCP |
 | :--- | :--- | :--- |
-| **ABNT NBR 14724** | 2011 (Em vigor) | Estrutura completa de trabalhos acadêmicos (elementos pré-textuais, textuais e pós-textuais), tipografia, paginação (3-3-2-2) e ilustrações. |
+| **ABNT NBR 14724** | 2011 (Em vigor) | Estrutura completa de trabalhos acadêmicos (elementos pré-textuais, textuais e pós-textuais), tipografia, paginação (3-3-2-2), ilustrações e equações/fórmulas numeradas. |
 | **ABNT NBR 6022** | 2018 | Estrutura de artigos científicos em publicações periódicas (dispensa capa, folha de rosto e sumário; exige elementos textuais contínuos). |
 | **ABNT NBR 10520** | **2023** (Edição Vigente) | Sistema autor-data em caixa mista `(Silva, 2023)`, citações diretas curtas (<=3 linhas) e longas (recuo de 4 cm, corpo 10, entrelinhas simples). |
 | **ABNT NBR 6023** | 2018 (Errata 2020) | Referências bibliográficas alinhadas à esquerda, destaque gráfico exclusivo no título principal e abreviatura padronizada de meses (`maio` sem ponto). |
@@ -67,8 +67,9 @@ abnt-mcp/
 
 ### Pilar 2: Redigir & Reformular
 - **Formatador de Citações (NBR 10520:2023):** Assegura autoria em caixa baixa-alta dentro de parênteses `(Silva; Santos, 2023)` e posicionamento do ponto final após os parênteses da indicação da fonte.
-- **Formatador de Figuras e Ilustrações (NBR 14724):** Gera a chamada textual obrigatória, identificação superior (`Figura X – Título`) e fonte no rodapé (`Fonte: Elaborado pelo autor (Ano).`).
-- **Diferenciação Tabular IBGE:** Implementa a abertura lateral em Tabelas (dados numéricos) e fechamento em moldura para Quadros (dados conceituais).
+- **Formatador de Figuras e Ilustrações (NBR 14724):** Gera a chamada textual obrigatória, identificação superior (`Figura X – Título`) e fonte no rodapé (`Fonte: Elaborado pelo autor (Ano).`) acoplada sem vãos.
+- **Diferenciação Tabular IBGE (1993):** Implementa o padrão canônico com laterais e divisórias abertas em Tabelas e fechamento em moldura completa para Quadros.
+- **Formatador de Equações e Fórmulas (NBR 14724 item 5.9 e NBR14724-R04):** Equações centralizadas e destacadas do texto com numeração consecutiva entre parênteses à margem direita, com explicação de variáveis iniciada por "onde:" sem recuo de parágrafo e entrelinha simples.
 - **Gerador de Resumo (NBR 6028:2021):** Síntese em parágrafo único de 150 a 500 palavras estruturada em contexto, objetivo, metodologia, resultados e conclusão.
 
 ### Pilar 3: Testar & Compilar
@@ -86,13 +87,13 @@ abnt-mcp/
 
 ## 4. Especificação Técnica das Interfaces MCP
 
-O servidor expõe formalmente 18 ferramentas, 3 prompts orientados e 8 recursos canônicos sob a especificação do Model Context Protocol:
+O servidor expõe formalmente 19 ferramentas, 3 prompts orientados e 8 recursos canônicos sob a especificação do Model Context Protocol:
 
 ### 4.1. Ferramentas Operacionais (`@mcp.tool`)
 
 | Identificador | Parâmetros de Entrada | Descrição Formal |
 | :--- | :--- | :--- |
-| `scaffold_academic_project` | `project_path: str`, `title: str`, `author: str`, `document_type: str = "tcc"`, `format: "typst"\|"latex"\|"markdown" = "typst"`, `sample_pdf_path: str?`, `logo_path: str?`, ... | Inicializa a árvore completa de diretórios do projeto, extrai o padrão institucional e o brasão/logotipo de um PDF modelo da faculdade e cria o documento principal compilável. |
+| `scaffold_academic_project` | `project_path: str`, `title: str`, `author: str`, `document_type: str = "tcc"`, `format: "typst"\|"latex"\|"markdown" = "typst"`, `sample_pdf_path: str?`, `logo_path: str?`, ... | Inicializa a árvore do projeto com injeção dinâmica dos 9 elementos pré-textuais e listas reativas, aprendendo o perfil e brasão/logotipo de um PDF modelo. |
 | `init_research_spec` | `project_path: str`, `title: str`, `research_problem: str`, `general_objective: str`, `specific_objectives: list`, `methodology_summary: str`, `sample_pdf_path: str?`, `logo_path: str?`, ... | Inicializa o manifesto científico SDD (`abnt.spec.json` e `SPEC.md`) em 3 camadas no projeto. |
 | `audit_research_spec` | `project_path: str`, `spec_path: str?` | Audita o manuscrito contra `abnt.spec.json`, validando objetivos (`OBJ-XX`), regras da instituição, ilustrações/tabelas, prontidão (`submission_readiness`) e salvando relatórios em `.abnt-mcp/`. |
 | `simulate_banca` | `project_path: str` | Simula arguição de banca examinadora com notas por eixo e cobrança direta de objetivos específicos pendentes. |
@@ -104,6 +105,7 @@ O servidor expõe formalmente 18 ferramentas, 3 prompts orientados e 8 recursos 
 | `format_reference` | `entry_type: str`, `title: str`, `year: str\|int`, `authors: list?`, `journal_name: str?`, `publisher: str?`, ... | Elaboração de referências conforme NBR 6023:2018 com destaque exclusivo no título principal. |
 | `format_figure` | `image_path: str`, `caption: str`, `source: str`, `figure_number: int\|str` | Gera snippets para inserção formal de ilustrações (topo, centro, base com fonte e chamada textual). |
 | `format_table` | `title: str`, `headers: list[str]`, `rows: list[list[str]]`, `source: str`, `category: "tabela"\|"quadro"` | Formatação de tabelas (Normas IBGE, laterais abertas) ou quadros (ABNT, bordas fechadas). |
+| `format_equation` | `expression: str`, `equation_number: int\|str = 1`, `variable_definitions: list?\|str?`, `label: str?`, `target_format: str = "typst"` | Formatação de equações matemáticas centralizadas, numeradas à direita e variáveis sem recuo (NBR 14724 item 5.9 e NBR14724-R04). |
 | `generate_academic_resumo` | `context: str`, `objective: str`, `methodology: str`, `results: str`, `conclusion: str`, `keywords: list[str]`, `language: "pt"\|"en"` | Redação de resumo ou abstract canônico contínuo (NBR 6028) com validação de extensão. |
 | `search_academic_papers` | `query: str`, `source: "all"\|"crossref"\|"scielo"`, `limit: int = 5` | Recuperação de artigos indexados com DOI, resumo e metadados estruturados. |
 | `fetch_bibtex_by_doi` | `doi: str`, `bib_file: str?` | Recupera a entrada BibTeX oficial via negociação de conteúdo e anexa ao `.bib` sem duplicatas. |
