@@ -24,7 +24,6 @@ TYPST_TEMPLATE = r"""// ========================================================
 #set heading(numbering: "1.1")
 #set math.equation(numbering: "(1)")
 #show figure: set figure.caption(position: top)
-#show figure: set block(spacing: 1.2cm)
 #show figure.caption: set text(size: 10pt)
 
 // Formatação de Títulos e Quebra Obrigatória de Capítulos Primários (NBR 14724 / NBR 6024)
