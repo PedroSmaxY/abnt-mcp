@@ -10,6 +10,10 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 
 ## [Unreleased]
 
+---
+
+## [0.3.0] - 2026-10-24
+
 ### Adicionado
 - **Nova Regra Normativa `NBR14724-R04` e Ferramenta `format_equation` (ABNT NBR 14724 item 5.9):**
   - Cadastro da regra `NBR14724-R04` no catálogo normativo (`specs/01-normative-catalog.spec.md` e `config.py`).
