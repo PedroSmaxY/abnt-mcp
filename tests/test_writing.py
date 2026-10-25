@@ -158,6 +158,8 @@ def test_format_figure():
     assert "\\caption{Arquitetura do Modelo}" in res["snippets"]["latex"]
     assert "images/diagrama.png" in res["snippets"]["latex"]
     assert "Fonte: Dados da pesquisa (2026)." in res["snippets"]["markdown"]
+    # Blindagem contra órfãos
+    assert "#block(breakable: false)" in res["snippets"]["typst"]
 
 
 def test_format_table_and_quadro():
@@ -175,6 +177,7 @@ def test_format_table_and_quadro():
     assert "Tabela 1 – Distribuição Amostral" in res_tab["snippets"]["markdown"]
     assert "\\toprule" in res_tab["snippets"]["latex"]
     assert 'kind: "quadro"' not in res_tab["snippets"]["typst"]
+    assert "#block(breakable: false)" in res_tab["snippets"]["typst"]
 
     # Quadro (ABNT: bordas fechadas)
     res_quad = format_table_abnt(
@@ -190,3 +193,63 @@ def test_format_table_and_quadro():
     assert "\\hline" in res_quad["snippets"]["latex"]
     assert 'kind: "quadro"' in res_quad["snippets"]["typst"]
     assert "supplement: [Quadro]" in res_quad["snippets"]["typst"]
+    assert "#block(breakable: false)" in res_quad["snippets"]["typst"]
+
+
+def test_format_equation_nbr14724_r04():
+    """Valida NBR14724-R04: equações centralizadas, numeradas à direita e variáveis sem recuo."""
+    from abnt_mcp.pillars.writing import format_equation_abnt
+    from abnt_mcp.server import format_equation
+
+    # 1. Equação com lista de variáveis
+    res = format_equation_abnt(
+        expression="E = m c^2",
+        equation_number=1,
+        variable_definitions=[
+            "E é a energia (Joules);",
+            "m é a massa do corpo (quilogramas);",
+            "c é a velocidade da luz no vácuo (m/s)."
+        ],
+        label="eq:energia",
+        target_format="typst"
+    )
+
+    assert res["rule_id"] == "NBR14724-R04"
+    assert res["standard"] == "ABNT NBR 14724:2011"
+    assert res["equation_number"] == 1
+    assert "Conforme apresentado na Equação (1)" in res["text_call_example"]
+
+    # Typst: #block(breakable: false), $ E = m c^2 $ <eq:energia>, e first-line-indent: 0cm na frase explicativa
+    typ_code = res["snippets"]["typst"]
+    assert "#block(breakable: false)" in typ_code
+    assert "$ E = m c^2 $ <eq:energia>" in typ_code
+    assert "first-line-indent: 0cm" in typ_code
+    assert "leading: 1.061em" in typ_code
+    assert "onde:\\" in typ_code
+    assert "E é a energia (Joules);" in typ_code
+
+    # LaTeX: \begin{equation}, \noindent onde:, e \item
+    tex_code = res["snippets"]["latex"]
+    assert "\\begin{equation}" in tex_code
+    assert "E = m c^2" in tex_code
+    assert "\\label{eq:energia}" in tex_code
+    assert "\\noindent onde:" in tex_code
+    assert "\\item E é a energia (Joules);" in tex_code
+
+    # Markdown: $$ ... \tag{1} $$ e <p style="text-indent: 0;">onde:</p>
+    md_code = res["snippets"]["markdown"]
+    assert "$$\nE = m c^2 \\tag{1}\n$$" in md_code
+    assert 'style="text-indent: 0;"' in md_code
+
+    # 2. Teste via wrapper de tool no FastMCP
+    tool_res = format_equation(
+        expression="f(x) = a x + b",
+        equation_number=2,
+        variable_definitions="onde:\na é o coeficiente angular;\nb é o coeficiente linear.",
+        target_format="typst"
+    )
+    assert tool_res["rule_id"] == "NBR14724-R04"
+    assert tool_res["selected_snippet"] == tool_res["snippets"]["typst"]
+    assert "$ f(x) = a x + b $ <eq:equacao2>" in tool_res["snippets"]["typst"]
+    assert "a é o coeficiente angular;" in tool_res["snippets"]["typst"]
+

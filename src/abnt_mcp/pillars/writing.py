@@ -396,14 +396,23 @@ def format_figure_abnt(
         f"\\end{{figure}}"
     )
 
-    # Snippet em Typst
+    # Snippet em Typst (com blindagem contra quebra órfã entre imagem e fonte)
     typst_code = (
-        f"#figure(\n"
-        f'  image("{clean_path}", width: 80%),\n'
-        f"  caption: [{caption.strip()}],\n"
-        f")\n"
-        f"#align(center)[#text(size: 10pt)[{source_fig}]]"
+        f"#block(breakable: false)[\n"
+        f"  #figure(\n"
+        f'    image("{clean_path}", width: 80%),\n'
+        f"    caption: [{caption.strip()}],\n"
+        f"  )\n"
+        f"  #align(center)[#text(size: 10pt)[{source_fig}]]\n"
+        f"]"
     )
+
+    snippets = {
+        "markdown": md_code,
+        "latex": latex_code,
+        "typst": typst_code,
+    }
+    selected_snippet = snippets.get(target_format.lower(), md_code)
 
     return {
         "standard": "ABNT NBR 14724:2011",
@@ -411,17 +420,15 @@ def format_figure_abnt(
         "caption": caption.strip(),
         "source": effective_source,
         "text_call_example": text_call,
+        "selected_snippet": selected_snippet,
         "rules": [
             "Identificação no topo com tipo, número de ordem e título.",
             "Indicação da fonte obrigatória no rodapé, mesmo quando elaborada pelo próprio autor.",
             "Tamanho da fonte menor (10 pt) e espaçamento simples para legenda e fonte.",
-            "Chamada obrigatória no texto anterior ou concomitante à figura."
+            "Chamada obrigatória no texto anterior ou concomitante à figura.",
+            "Blindagem contra separação de imagem e legenda via #block(breakable: false)."
         ],
-        "snippets": {
-            "markdown": md_code,
-            "latex": latex_code,
-            "typst": typst_code,
-        }
+        "snippets": snippets,
     }
 
 
@@ -486,19 +493,21 @@ def format_table_abnt(
         f"\\end{{{category.lower()}}}"
     )
 
-    # 3. Typst
-    quadro_kind_attr = '\n  kind: "quadro",\n  supplement: [Quadro],' if not is_table else ""
+    # 3. Typst (com blindagem contra quebra órfã entre tabela/quadro e fonte)
+    quadro_kind_attr = '\n    kind: "quadro",\n    supplement: [Quadro],' if not is_table else ""
     typst_code = (
-        f"#figure(\n"
-        f"  table(\n"
-        f"    columns: {len(headers)},\n"
-        f"    stroke: {'(x, y) => if x == 0 or x == ' + str(len(headers)) + ' { none } else { 0.5pt }' if is_table else '0.5pt'},\n"
-        f"    " + ", ".join(f"[{h}]" for h in headers) + ",\n"
-        + ",\n".join(f"    {', '.join(f'[{cell}]' for cell in r)}" for r in rows) + "\n"
-        f"  ),\n"
-        f"  caption: [{title.strip()}],{quadro_kind_attr}\n"
-        f")\n"
-        f"#align(center)[#text(size: 10pt)[{source_label}]]"
+        f"#block(breakable: false)[\n"
+        f"  #figure(\n"
+        f"    table(\n"
+        f"      columns: {len(headers)},\n"
+        f"      stroke: {'(x, y) => if x == 0 or x == ' + str(len(headers)) + ' { none } else { 0.5pt }' if is_table else '0.5pt'},\n"
+        f"      " + ", ".join(f"[{h}]" for h in headers) + ",\n"
+        + ",\n".join(f"      {', '.join(f'[{cell}]' for cell in r)}" for r in rows) + "\n"
+        f"    ),\n"
+        f"    caption: [{title.strip()}],{quadro_kind_attr}\n"
+        f"  )\n"
+        f"  #align(center)[#text(size: 10pt)[{source_label}]]\n"
+        f"]"
     )
 
     return {
@@ -516,4 +525,119 @@ def format_table_abnt(
             "typst": typst_code,
         }
     }
+
+
+def format_equation_abnt(
+    expression: str,
+    equation_number: int | str = 1,
+    variable_definitions: list[str] | str | None = None,
+    label: str | None = None,
+    target_format: str = "typst",
+) -> dict[str, Any]:
+    """
+    Formata equações e fórmulas segundo a ABNT NBR 14724:2011 (item 5.9 e NBR14724-R04):
+    - Destaque no texto com entrelinhas maior.
+    - Quando destacadas, devem ser centralizadas e numeradas consecutivamente entre parênteses à direita.
+    - A explicação das variáveis ('onde:' ou 'em que:') é continuação da sentença matemática,
+      portanto NÃO deve receber recuo de parágrafo (first-line-indent: 0cm).
+    - Envolvimento com #block(breakable: false) em Typst para blindar contra órfãos.
+    """
+    clean_expr = expression.strip()
+    clean_label = label.strip() if label else f"eq:equacao{equation_number}"
+    eq_num_str = str(equation_number)
+    text_call = f"Conforme apresentado na Equação ({eq_num_str}), ..."
+
+    # Normalizar definições de variáveis
+    var_list: list[str] = []
+    if isinstance(variable_definitions, list):
+        var_list = [v.strip() for v in variable_definitions if v.strip()]
+    elif isinstance(variable_definitions, str) and variable_definitions.strip():
+        lines = [line.strip() for line in variable_definitions.strip().splitlines() if line.strip()]
+        for ln in lines:
+            if ln.lower().startswith("onde:") or ln.lower().startswith("em que:"):
+                ln = ln.split(":", 1)[1].strip()
+            if ln:
+                var_list.append(ln)
+
+    # 1. Typst snippet
+    if var_list:
+        vars_typst = "\\\n    ".join(var_list)
+        typst_code = (
+            f"#block(breakable: false)[\n"
+            f"  $ {clean_expr} $ <{clean_label}>\n"
+            f"  #par(first-line-indent: 0cm, leading: 1.061em)[\n"
+            f"    onde:\\\n"
+            f"    {vars_typst}\n"
+            f"  ]\n"
+            f"]"
+        )
+    else:
+        typst_code = (
+            f"#block(breakable: false)[\n"
+            f"  $ {clean_expr} $ <{clean_label}>\n"
+            f"]"
+        )
+
+    # 2. LaTeX snippet
+    if var_list:
+        items_latex = "\n".join(f"    \\item {v}" for v in var_list)
+        latex_code = (
+            f"\\begin{{equation}}\n"
+            f"    {clean_expr}\n"
+            f"    \\label{{{clean_label}}}\n"
+            f"\\end{{equation}}\n"
+            f"\\noindent onde:\n"
+            f"\\begin{{itemize}}\n"
+            f"{items_latex}\n"
+            f"\\end{{itemize}}"
+        )
+    else:
+        latex_code = (
+            f"\\begin{{equation}}\n"
+            f"    {clean_expr}\n"
+            f"    \\label{{{clean_label}}}\n"
+            f"\\end{{equation}}"
+        )
+
+    # 3. Markdown snippet
+    if var_list:
+        items_md = "\n".join(f"- {v}" for v in var_list)
+        md_code = (
+            f"$$\n"
+            f"{clean_expr} \\tag{{{eq_num_str}}}\n"
+            f"$$\n\n"
+            f"<p style=\"text-indent: 0;\">onde:</p>\n\n"
+            f"{items_md}"
+        )
+    else:
+        md_code = (
+            f"$$\n"
+            f"{clean_expr} \\tag{{{eq_num_str}}}\n"
+            f"$$"
+        )
+
+    snippets = {
+        "typst": typst_code,
+        "latex": latex_code,
+        "markdown": md_code,
+    }
+    selected_snippet = snippets.get(target_format.lower(), typst_code)
+
+    return {
+        "standard": "ABNT NBR 14724:2011",
+        "rule_id": "NBR14724-R04",
+        "equation_number": equation_number,
+        "expression": clean_expr,
+        "label": clean_label,
+        "variable_definitions": var_list,
+        "text_call_example": text_call,
+        "selected_snippet": selected_snippet,
+        "rules_applied": [
+            "NBR14724-R04: Equações centralizadas e destacadas do texto com numeração consecutiva entre parênteses à margem direita.",
+            "NBR14724-R04: Frase explicativa ('onde:') é continuação da oração e não deve ter recuo de parágrafo (first-line-indent: 0cm).",
+            "Blindagem contra quebra órfã de página via #block(breakable: false)."
+        ],
+        "snippets": snippets,
+    }
+
 

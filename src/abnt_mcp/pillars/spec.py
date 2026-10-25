@@ -331,7 +331,7 @@ def _render_dynamic_pre_textual(
 #v(1.5cm)
 #align(right)[
   #block(width: 8.5cm)[
-    #set par(justify: true, leading: 0.65em, first-line-indent: 0cm)
+    #set par(justify: true, leading: 0.49em, first-line-indent: 0cm)
     #text(size: 10pt)[
       {preamble}
     ]
@@ -604,25 +604,28 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
 
 #set par(
   justify: true,
-  leading: 0.75em,
+  leading: 1.061em,
   first-line-indent: (amount: 1.25cm, all: true)
 )
 #set heading(numbering: "1.1")
+#set math.equation(numbering: "(1)")
 #show figure: set figure.caption(position: top)
+#show figure: set block(spacing: 1.2cm)
+#show figure.caption: set text(size: 10pt)
 
-// --- REGRAS DE DIAGRAMAÇÃO ABNT (NBR 14724 item 5.2.1) ---
-// Cada capítulo primário inicia obrigatoriamente em folha distinta
+// --- REGRAS DE DIAGRAMAÇÃO ABNT (NBR 14724 itens 5.2.1 e 5.2.2) ---
+// Cada capítulo primário inicia obrigatoriamente em folha distinta com respiro de 1,5 linha (0.8cm)
 #show heading.where(level: 1): it => {{
   pagebreak(weak: true)
-  v(1.5cm)
+  v(1.0cm)
   it
-  v(1.5cm)
+  v(0.8cm)
 }}
 
 #show heading.where(level: 2): it => {{
-  v(1cm)
-  it
   v(0.8cm)
+  it
+  v(0.6cm)
 }}
 
 // --- CAPA (Não contada na paginação - NBR 14724 item 5.3) ---
@@ -653,7 +656,7 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
   #v(3cm)
   #align(right)[
     #block(width: 8cm)[
-      #set par(leading: 0.65em, first-line-indent: 0cm)
+      #set par(leading: 0.49em, first-line-indent: 0cm)
       #text(size: 10pt)[
         {preamble}
         
@@ -671,7 +674,7 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
 // --- RESUMO (NBR 6028:2021) ---
 #align(center)[*RESUMO*]
 #v(1cm)
-#par(first-line-indent: 0cm, leading: 0.65em)[
+#par(first-line-indent: 0cm, leading: 0.49em)[
   {spec.general_objective} A metodologia adotada consiste em: {spec.methodology_summary} Conclui-se que a estrutura orientada a especificações assegura rastreabilidade normativa e metodológica.
   
   #v(0.5cm)
@@ -682,7 +685,7 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
 // --- ABSTRACT ---
 #align(center)[*ABSTRACT*]
 #v(1cm)
-#par(first-line-indent: 0cm, leading: 0.65em)[
+#par(first-line-indent: 0cm, leading: 0.49em)[
   This academic work investigates the proposed research problem through a spec-driven methodology. Results demonstrate compliance with technical standards.
   
   #v(0.5cm)

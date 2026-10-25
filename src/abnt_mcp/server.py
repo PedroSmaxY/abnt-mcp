@@ -24,6 +24,7 @@ from abnt_mcp.pillars.writing import (
     reformulate_to_impersonal,
     format_figure_abnt,
     format_table_abnt,
+    format_equation_abnt,
 )
 from abnt_mcp.pillars.compiler import compile_project
 from abnt_mcp.pillars.advisory import (
@@ -335,6 +336,30 @@ def format_table(
         source=source,
         table_number=table_number,
         category=category,
+    )
+
+
+@mcp.tool()
+def format_equation(
+    expression: str,
+    equation_number: int | str = 1,
+    variable_definitions: list[str] | str | None = None,
+    label: str | None = None,
+    target_format: Literal["typst", "latex", "markdown"] = "typst",
+) -> dict[str, Any]:
+    """
+    Formata equações e fórmulas matemáticas segundo a ABNT NBR 14724 (item 5.9 e regra NBR14724-R04):
+    - Equações centralizadas e destacadas do texto com numeração consecutiva entre parênteses à margem direita.
+    - Definição das variáveis ('onde:' ou 'em que:') sem recuo de parágrafo (first-line-indent: 0cm).
+    - Blindagem contra quebras órfãs de página em Typst via #block(breakable: false).
+    - Gera snippets prontos para Typst, LaTeX e Markdown.
+    """
+    return format_equation_abnt(
+        expression=expression,
+        equation_number=equation_number,
+        variable_definitions=variable_definitions,
+        label=label,
+        target_format=target_format,
     )
 
 

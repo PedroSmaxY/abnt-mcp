@@ -11,6 +11,17 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 ## [Unreleased]
 
 ### Adicionado
+- **Nova Regra Normativa `NBR14724-R04` e Ferramenta `format_equation` (ABNT NBR 14724 item 5.9):**
+  - Cadastro da regra `NBR14724-R04` no catálogo normativo (`specs/01-normative-catalog.spec.md` e `config.py`).
+  - Implementação da ferramenta FastMCP `@mcp.tool format_equation` (`server.py`, `pillars/writing.py`, `models.py`), gerando snippets prontos para Typst, LaTeX e Markdown.
+  - Formatação com centralização da equação, numeração consecutiva entre parênteses alinhada à margem direita e definição de variáveis iniciada por "onde:" sem recuo de parágrafo (`first-line-indent: 0cm`) por constituir continuação sintática da sentença matemática.
+- **Calibração Matemática do Espaçamento Entrelinhas (ABNT NBR 14724 item 5.2):**
+  - Calibração analítica da distância baseline-to-baseline (20,685 pt no Word 1,5) implementando `leading: 1.061em` no corpo do texto e `leading: 0.49em` para espaçamento simples (Folha de Rosto, Folha de Aprovação, Resumo e Abstract) em `spec.py` e `templates/typst.py`.
+- **Respiro Normativo dos Títulos de Seção (ABNT NBR 14724 item 5.2.2):**
+  - Ajuste dos espaçamentos verticais de headings: títulos primários com `v(1.0cm)` antes e `v(0.8cm)` depois (respiro de 1 linha de 1,5), e secundários com `v(0.8cm)` antes e `v(0.6cm)` depois em `spec.py` e `templates/typst.py`.
+- **Diagramação e Blindagem Anti-Órfãos para Figuras e Tabelas (ABNT NBR 14724 item 5.8):**
+  - Adição de `#show figure: set block(spacing: 1.2cm)` e `#show figure.caption: set text(size: 10pt)` nos templates Typst.
+  - Envolvimento dos snippets Typst emitidos por `format_figure_abnt` e `format_table_abnt` em `#block(breakable: false)` para impedir quebras de página entre a ilustração/tabela e sua respectiva fonte.
 - **Suporte a Cidade/Local Dinâmica no Perfil e Rodapé (`models.py`, `pdf_reader.py` e `spec.py`):**
   - Adicionado campo `city: str | None` no modelo `NormativeProfile`.
   - Extração automática da cidade/local das últimas linhas da Capa (linha adjacente ao ano de publicação) em `infer_institutional_profile_from_pdf`.
