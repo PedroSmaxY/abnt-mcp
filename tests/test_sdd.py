@@ -780,6 +780,9 @@ def test_typst_abnt_spacing_top_caption_and_reactive_outlines(tmp_path: Path) ->
     assert "leading: 0.49em" in main_typ
     assert "v(0.8cm)" in main_typ
     assert "show figure.caption: set text(size: 10pt)" in main_typ
+    assert "show figure: set align(center)" in main_typ
+    assert "show table.cell: set par(justify: false" in main_typ
+    assert "show figure.where(kind: table): set text(size: 10pt)" in main_typ
 
     # Compilação limpa sem figuras nem tabelas: nenhuma lista vazia deve ser gerada
     comp_clean = compile_tcc(str(proj_dir), engine="typst")
