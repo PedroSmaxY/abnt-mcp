@@ -679,9 +679,10 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
 // --- RESUMO (NBR 6028:2021) ---
 #align(center)[*RESUMO*]
 #v(1cm)
-#par(first-line-indent: 0cm, leading: 0.49em)[
+#block[
+  #set par(first-line-indent: 0cm, leading: 0.49em, justify: true)
   {spec.general_objective} A metodologia adotada consiste em: {spec.methodology_summary} Conclui-se que a estrutura orientada a especificações assegura rastreabilidade normativa e metodológica.
-  
+
   #v(0.5cm)
   *Palavras-chave:* ABNT; pesquisa científica; metodologia; especificação.
 ]
@@ -690,9 +691,10 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
 // --- ABSTRACT ---
 #align(center)[*ABSTRACT*]
 #v(1cm)
-#par(first-line-indent: 0cm, leading: 0.49em)[
+#block[
+  #set par(first-line-indent: 0cm, leading: 0.49em, justify: true)
   This academic work investigates the proposed research problem through a spec-driven methodology. Results demonstrate compliance with technical standards.
-  
+
   #v(0.5cm)
   *Keywords:* ABNT; scientific research; methodology; specification.
 ]

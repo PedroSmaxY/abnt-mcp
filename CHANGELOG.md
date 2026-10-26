@@ -10,6 +10,12 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 
 ## [Unreleased]
 
+### Corrigido
+- **Diagramação e Quebra de Linha de Palavras-chave no Resumo e Abstract (`src/abnt_mcp/pillars/spec.py` e `src/abnt_mcp/templates/typst.py`):**
+  - Substituição da chamada `#par(first-line-indent: 0cm, leading: 0.49em)[ ... ]` por `#block[ #set par(first-line-indent: 0cm, leading: 0.49em, justify: true) ... ]` nas seções de Resumo e Abstract do Typst.
+  - O uso anterior de `#par[...]` unificava o texto do resumo e os termos indexadores em um único parágrafo contínuo, colapsando o espaçamento vertical `#v(0.5cm)` e fazendo com que `*Palavras-chave:*` ficasse na mesma linha corrida após o último ponto final do resumo.
+  - A correção isola os parágrafos dentro de um bloco sem recuo de primeira linha, garantindo a separação vertical e a quebra de linha exigida pela ABNT NBR 6028:2021 (Seção 3.3).
+
 ---
 
 ## [0.3.1] - 2026-10-26
