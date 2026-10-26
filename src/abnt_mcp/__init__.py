@@ -2,5 +2,5 @@
 
 from abnt_mcp.server import mcp, main
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __all__ = ["mcp", "main", "__version__"]

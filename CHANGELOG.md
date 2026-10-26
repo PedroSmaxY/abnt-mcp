@@ -10,6 +10,10 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 
 ## [Unreleased]
 
+---
+
+## [0.3.1] - 2026-10-26
+
 ### Corrigido
 - **Blindagem Tipográfica de Células de Tabelas e Quadros (`src/abnt_mcp/pillars/spec.py` e `src/abnt_mcp/templates/typst.py`):**
   - Implementação de regras globais `#show figure.where(kind: table): set text(size: 10pt)`, `#show figure.where(kind: "quadro"): set text(size: 10pt)` e `#show table.cell: set par(justify: false, leading: 0.49em, first-line-indent: 0cm)` com `#show table.cell: set align(left)`, impedindo que células herdem a justificação forçada e o entrelinha 1,5 do corpo do texto (ABNT NBR 14724 item 5.2 e IBGE 1993).
