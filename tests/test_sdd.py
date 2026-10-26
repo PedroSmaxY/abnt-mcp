@@ -784,6 +784,12 @@ def test_typst_abnt_spacing_top_caption_and_reactive_outlines(tmp_path: Path) ->
     assert "show table.cell: set par(justify: false" in main_typ
     assert "show figure.where(kind: table): set text(size: 10pt)" in main_typ
 
+    # Resumo e Abstract com isolamento de bloco (NBR 6028:2021)
+    assert "#block[\n  #set par(first-line-indent: 0cm, leading: 0.49em, justify: true)" in main_typ
+    assert "#block[\n  #set par(first-line-indent: 0cm, leading: 0.49em, justify: true)" in canonical_tpl
+    assert "*Palavras-chave:*" in main_typ
+    assert "*Keywords:*" in main_typ
+
     # Compilação limpa sem figuras nem tabelas: nenhuma lista vazia deve ser gerada
     comp_clean = compile_tcc(str(proj_dir), engine="typst")
     assert comp_clean["success"] is True

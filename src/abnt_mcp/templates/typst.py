@@ -98,11 +98,12 @@ TYPST_TEMPLATE = r"""// ========================================================
 // Resumo (Obrigatório - NBR 6028)
 #align(center)[#text(weight: "bold")[RESUMO]]
 #v(1cm)
-#par(first-line-indent: 0cm, leading: 0.49em, justify: true)[
-Este trabalho sintetiza o desenvolvimento de ferramentas baseadas no Model Context Protocol. Apresenta-se o objetivo de aprimorar a automação de escrita técnica segundo a NBR 14724. Utilizou-se como metodologia a análise de conformidade de código e testes automatizados. Os resultados demonstram redução significativa de erros de citação e inconsistências tipográficas. Conclui-se que a padronização orientada a ferramentas inteligentes potencializa o rigor e a produtividade científica.
+#block[
+  #set par(first-line-indent: 0cm, leading: 0.49em, justify: true)
+  Este trabalho sintetiza o desenvolvimento de ferramentas baseadas no Model Context Protocol. Apresenta-se o objetivo de aprimorar a automação de escrita técnica segundo a NBR 14724. Utilizou-se como metodologia a análise de conformidade de código e testes automatizados. Os resultados demonstram redução significativa de erros de citação e inconsistências tipográficas. Conclui-se que a padronização orientada a ferramentas inteligentes potencializa o rigor e a produtividade científica.
 
-#v(1cm)
-*Palavras-chave:* Normas ABNT; Model Context Protocol; Escrita Científica; Automação Acadêmica.
+  #v(0.5cm)
+  *Palavras-chave:* Normas ABNT; Model Context Protocol; Escrita Científica; Automação Acadêmica.
 ]
 
 #pagebreak()
