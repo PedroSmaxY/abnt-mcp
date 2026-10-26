@@ -10,6 +10,10 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 
 ## [Unreleased]
 
+---
+
+## [0.3.2] - 2026-10-26
+
 ### Corrigido
 - **Diagramação e Quebra de Linha de Palavras-chave no Resumo e Abstract (`src/abnt_mcp/pillars/spec.py` e `src/abnt_mcp/templates/typst.py`):**
   - Substituição da chamada `#par(first-line-indent: 0cm, leading: 0.49em)[ ... ]` por `#block[ #set par(first-line-indent: 0cm, leading: 0.49em, justify: true) ... ]` nas seções de Resumo e Abstract do Typst.
