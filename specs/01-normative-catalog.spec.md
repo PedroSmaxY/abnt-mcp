@@ -23,7 +23,7 @@
 | `NBR6024-R01` | ABNT NBR 6024:2012 | Seção 4.1 | Numeração progressiva das seções: emprego de algarismos arábicos separados por ponto entre níveis, sem ponto final após o último algarismo antes do título (`1.1 Seção` e nunca `1.1. Seção`) | `warning` | `pillars/diagnostics.py` |
 | `NBR6027-R01` | ABNT NBR 6027:2012 | Seção 4 | Sumário: enumeração exclusivamente a partir dos elementos textuais e pós-textuais; elementos pré-textuais não podem constar no sumário | `error` | `templates/` & `pillars/diagnostics.py` |
 | `NBR6028-R01` | ABNT NBR 6028:2021 | Seção 3.3 | Resumo documental: parágrafo único contínuo na voz ativa e 3ª pessoa do singular, extensão de 150 a 500 palavras (trabalhos acadêmicos) ou 100 a 250 palavras (artigos), seguido de palavras-chave separadas por ponto e vírgula | `warning` | `pillars/writing.py` |
-| `IBGE1993-R01` | Normas Tabulares IBGE (1993) | Seção 3.1 | Representação tabular: Tabelas (dados numéricos/estatísticos) possuem apenas linhas horizontais no topo, cabeçalho e base, com laterais esquerda e direita e linhas verticais internas abertas; Quadros (dados textuais/qualitativos) possuem todas as bordas fechadas em moldura | `error` | `pillars/writing.py` & `pillars/diagnostics.py` |
+| `IBGE1993-R01` | Normas Tabulares IBGE (1993) | Seção 3.1 | Representação tabular: Tabelas (dados numéricos/estatísticos) possuem apenas linhas horizontais no topo, cabeçalho e base, com laterais e divisórias verticais internas abertas; Quadros (dados textuais/qualitativos) possuem todas as bordas fechadas em moldura; conteúdo celular em fonte 10pt, entrelinha simples (0.49em) e alinhamento à esquerda sem justificação forçada (NBR 14724 item 5.2) | `error` | `pillars/writing.py` & `pillars/diagnostics.py` |
 
 ---
 

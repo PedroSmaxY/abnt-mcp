@@ -25,6 +25,13 @@ TYPST_TEMPLATE = r"""// ========================================================
 #set math.equation(numbering: "(1)")
 #show figure: set figure.caption(position: top)
 #show figure.caption: set text(size: 10pt)
+#show figure: set align(center)
+
+// --- TABELAS E QUADROS (NBR 14724 item 5.2 e IBGE 1993) ---
+#show figure.where(kind: table): set text(size: 10pt)
+#show figure.where(kind: "quadro"): set text(size: 10pt)
+#show table.cell: set par(justify: false, leading: 0.49em, first-line-indent: 0cm)
+#show table.cell: set align(left)
 
 // Formatação de Títulos e Quebra Obrigatória de Capítulos Primários (NBR 14724 / NBR 6024)
 #show heading.where(level: 1): it => {

@@ -609,6 +609,14 @@ def _render_scaffolded_typst(spec: ResearchSpec) -> str:
 #set math.equation(numbering: "(1)")
 #show figure: set figure.caption(position: top)
 #show figure.caption: set text(size: 10pt)
+#show figure: set align(center)
+
+// --- TABELAS E QUADROS (NBR 14724 item 5.2 e IBGE 1993) ---
+// Utilizam tamanho 10pt, entrelinhas simples, sem recuo de parágrafo e alinhamento à esquerda sem justificação
+#show figure.where(kind: table): set text(size: 10pt)
+#show figure.where(kind: "quadro"): set text(size: 10pt)
+#show table.cell: set par(justify: false, leading: 0.49em, first-line-indent: 0cm)
+#show table.cell: set align(left)
 
 // --- REGRAS DE DIAGRAMAÇÃO ABNT (NBR 14724 itens 5.2.1 e 5.2.2) ---
 // Cada capítulo primário inicia obrigatoriamente em folha distinta com respiro de 1,5 linha (0.8cm)

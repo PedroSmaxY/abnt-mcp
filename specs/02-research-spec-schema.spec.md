@@ -132,9 +132,11 @@ Para geração de projetos e compilação em formato Typst (`scaffold_academic_p
 1. **Quebra de Página e Respiro de Capítulos e Seções (`NBR14724` itens 5.2.1 e 5.2.2):**
    - Títulos primários (`level: 1`) iniciam obrigatoriamente em folha distinta com respiro inferior normativo de 1,5 linha (`0.8cm`): `#show heading.where(level: 1): it => { pagebreak(weak: true); v(1.0cm); it; v(0.8cm) }`.
    - Títulos secundários (`level: 2`) observam respiro proporcional: `#show heading.where(level: 2): it => { v(0.8cm); it; v(0.6cm) }`.
-2. **Posição de Legendas e Blindagem de Fonte Órfã (`NBR14724` item 5.8 / `IBGE 1993`):**
+2. **Posição de Legendas, Centralização e Blindagem de Fonte Órfã (`NBR14724` item 5.8 / `IBGE 1993`):**
    - Identificação de ilustrações, tabelas e quadros posicionada no topo via `#show figure: set figure.caption(position: top)`, com tamanho 10pt (`#show figure.caption: set text(size: 10pt)`).
-   - Encapsulamento de figuras/tabelas e sua respectiva indicação de `Fonte:` no mesmo bloco inseparável (`#block(spacing: 1.2cm, breakable: false)`), mantendo a fonte imediatamente acoplada ao elemento visual (`#v(0.2cm)` ou `#v(0.3cm)`), prevenindo vãos inflados entre a figura e a sua fonte.
+   - Centralização global de ilustrações via `#show figure: set align(center)`.
+   - Encapsulamento de figuras/tabelas e sua respectiva indicação de `Fonte:` no mesmo bloco inseparável (`#block(spacing: 1.2cm, breakable: false)`), neutralizando a folga nativa do figure com `#v(-0.2cm)` para manter a fonte imediatamente acoplada ao elemento visual.
+   - Células de tabelas e quadros formatadas em tamanho 10pt, entrelinha simples (`leading: 0.49em`), sem recuo de parágrafo (`first-line-indent: 0cm`) e alinhamento à esquerda sem justificação forçada (`justify: false`), prevenindo deformações tipográficas em colunas estreitas.
 3. **Recuo de Parágrafos ABNT:**
    - Recuo obrigatório de 1,25 cm em todos os parágrafos de texto, inclusive no primeiro parágrafo após cada título, via `#set par(..., first-line-indent: (amount: 1.25cm, all: true))`.
 4. **Espaçamento Entrelinhas Matematicamente Calibrado (NBR 14724 item 5.2):**

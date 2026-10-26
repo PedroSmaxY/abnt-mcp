@@ -398,13 +398,15 @@ def format_figure_abnt(
 
     # Snippet em Typst (com blindagem contra quebra órfã entre imagem e fonte)
     typst_code = (
-        f"#block(spacing: 1.2cm, breakable: false)[\n"
-        f"  #figure(\n"
-        f'    image("{clean_path}", width: 80%),\n'
-        f"    caption: [{caption.strip()}],\n"
-        f"  )\n"
-        f"  #v(0.2cm)\n"
-        f"  #align(center)[#text(size: 10pt)[{source_fig}]]\n"
+        f"#align(center)[\n"
+        f"  #block(spacing: 1.2cm, breakable: false)[\n"
+        f"    #figure(\n"
+        f'      align(center)[#image("{clean_path}", width: 85%)],\n'
+        f"      caption: [{caption.strip()}],\n"
+        f"    )\n"
+        f"    #v(-0.2cm)\n"
+        f"    #text(size: 10pt)[{source_fig}]\n"
+        f"  ]\n"
         f"]"
     )
 
@@ -509,18 +511,20 @@ def format_table_abnt(
         stroke_expr = "0.5pt"
 
     typst_code = (
-        f"#block(spacing: 1.2cm, breakable: false)[\n"
-        f"  #figure(\n"
-        f"    table(\n"
-        f"      columns: {len(headers)},\n"
-        f"      stroke: {stroke_expr},\n"
-        f"      " + ", ".join(f"[{h}]" for h in headers) + ",\n"
-        + ",\n".join(f"      {', '.join(f'[{cell}]' for cell in r)}" for r in rows) + "\n"
-        f"    ),\n"
-        f"    caption: [{title.strip()}],{quadro_kind_attr}\n"
-        f"  )\n"
-        f"  #v(0.2cm)\n"
-        f"  #align(center)[#text(size: 10pt)[{source_label}]]\n"
+        f"#align(center)[\n"
+        f"  #block(spacing: 1.2cm, breakable: false)[\n"
+        f"    #figure(\n"
+        f"      table(\n"
+        f"        columns: {len(headers)},\n"
+        f"        stroke: {stroke_expr},\n"
+        f"        " + ", ".join(f"[{h}]" for h in headers) + ",\n"
+        + ",\n".join(f"        {', '.join(f'[{cell}]' for cell in r)}" for r in rows) + "\n"
+        f"      ),\n"
+        f"      caption: [{title.strip()}],{quadro_kind_attr}\n"
+        f"    )\n"
+        f"    #v(-0.2cm)\n"
+        f"    #text(size: 10pt)[{source_label}]\n"
+        f"  ]\n"
         f"]"
     )
 

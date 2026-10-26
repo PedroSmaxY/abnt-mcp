@@ -158,9 +158,11 @@ def test_format_figure():
     assert "\\caption{Arquitetura do Modelo}" in res["snippets"]["latex"]
     assert "images/diagrama.png" in res["snippets"]["latex"]
     assert "Fonte: Dados da pesquisa (2026)." in res["snippets"]["markdown"]
-    # Blindagem contra órfãos e respiro de 1.2cm com acoplamento da fonte
+    # Blindagem contra órfãos e respiro de 1.2cm com acoplamento da fonte e centralização
+    assert "#align(center)[" in res["snippets"]["typst"]
     assert "#block(spacing: 1.2cm, breakable: false)" in res["snippets"]["typst"]
-    assert "#v(0.2cm)" in res["snippets"]["typst"]
+    assert "align(center)[#image(" in res["snippets"]["typst"]
+    assert "#v(-0.2cm)" in res["snippets"]["typst"]
 
 
 def test_format_table_and_quadro():
@@ -178,12 +180,13 @@ def test_format_table_and_quadro():
     assert "Tabela 1 – Distribuição Amostral" in res_tab["snippets"]["markdown"]
     assert "\\toprule" in res_tab["snippets"]["latex"]
     assert 'kind: "quadro"' not in res_tab["snippets"]["typst"]
+    assert "#align(center)[" in res_tab["snippets"]["typst"]
     assert "#block(spacing: 1.2cm, breakable: false)" in res_tab["snippets"]["typst"]
     assert "left: none" in res_tab["snippets"]["typst"]
     assert "right: none" in res_tab["snippets"]["typst"]
     assert "top: if y == 0 { 0.8pt }" in res_tab["snippets"]["typst"]
     assert "bottom: if y == 2 { 0.8pt }" in res_tab["snippets"]["typst"]
-    assert "#v(0.2cm)" in res_tab["snippets"]["typst"]
+    assert "#v(-0.2cm)" in res_tab["snippets"]["typst"]
 
     # Quadro (ABNT: bordas fechadas)
     res_quad = format_table_abnt(
@@ -199,9 +202,10 @@ def test_format_table_and_quadro():
     assert "\\hline" in res_quad["snippets"]["latex"]
     assert 'kind: "quadro"' in res_quad["snippets"]["typst"]
     assert "supplement: [Quadro]" in res_quad["snippets"]["typst"]
+    assert "#align(center)[" in res_quad["snippets"]["typst"]
     assert "#block(spacing: 1.2cm, breakable: false)" in res_quad["snippets"]["typst"]
     assert "stroke: 0.5pt" in res_quad["snippets"]["typst"]
-    assert "#v(0.2cm)" in res_quad["snippets"]["typst"]
+    assert "#v(-0.2cm)" in res_quad["snippets"]["typst"]
 
 
 def test_format_equation_nbr14724_r04():

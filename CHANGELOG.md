@@ -10,6 +10,14 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 
 ## [Unreleased]
 
+### Corrigido
+- **Blindagem Tipográfica de Células de Tabelas e Quadros (`src/abnt_mcp/pillars/spec.py` e `src/abnt_mcp/templates/typst.py`):**
+  - Implementação de regras globais `#show figure.where(kind: table): set text(size: 10pt)`, `#show figure.where(kind: "quadro"): set text(size: 10pt)` e `#show table.cell: set par(justify: false, leading: 0.49em, first-line-indent: 0cm)` com `#show table.cell: set align(left)`, impedindo que células herdem a justificação forçada e o entrelinha 1,5 do corpo do texto (ABNT NBR 14724 item 5.2 e IBGE 1993).
+- **Centralização Global de Ilustrações e Figuras (`src/abnt_mcp/pillars/spec.py`, `src/abnt_mcp/templates/typst.py` e `src/abnt_mcp/pillars/writing.py`):**
+  - Adição de `#show figure: set align(center)` nos preâmbulos Typst e centralização interna explícita de imagens em `format_figure_abnt` via `align(center)[#image(...)]` (ABNT NBR 14724 item 5.8).
+- **Neutralização de Folga Nativa de Figure no Acoplamento da Fonte (`src/abnt_mcp/pillars/writing.py`):**
+  - Aplicação de `#v(-0.2cm)` antes da linha `Fonte:` nos snippets de `format_figure_abnt` e `format_table_abnt`, eliminando o gap nativo do elemento `#figure` do Typst e mantendo a indicação de fonte colada a ~0,2 cm da borda inferior.
+
 ---
 
 ## [0.3.0] - 2026-10-24
