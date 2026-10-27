@@ -169,6 +169,10 @@ class CitationValidationResult(BaseModel):
     uppercase_violations: list[dict[str, str | int]] = Field(
         description="Citações em caixa alta no texto violando a NBR 10520:2023"
     )
+    redundant_parens_violations: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Citações em Typst envolvidas em parênteses redundantes (@chave) gerando ((Autor, Ano))"
+    )
     diagnostics: list[DiagnosticItem] = Field(
         default_factory=list,
         description="Lista de diagnósticos normativos de citações e referências"

@@ -13,6 +13,55 @@ from pathlib import Path
 from typing import Any
 
 
+def parse_typst_error(exc: Exception, raw_output: str = "") -> dict[str, Any]:
+    """
+    Analisa exceções do Typst (typst.TypstError ou subprocess Typst CLI)
+    e extrai linha, coluna, trecho de diagnóstico e sugestões acionáveis.
+    """
+    msg = getattr(exc, "message", None) or str(exc)
+    diagnostic = getattr(exc, "diagnostic", None) or raw_output or str(exc)
+
+    line: int | None = None
+    column: int | None = None
+
+    # Tenta extrair linha e coluna do trecho do diagnóstico (ex: "┌─ .../arquivo.typ:42:5")
+    match = re.search(r":(\d+):(\d+)", diagnostic)
+    if match:
+        try:
+            line = int(match.group(1))
+            column = int(match.group(2))
+        except (ValueError, TypeError):
+            pass
+
+    suggestions: list[str] = []
+    msg_lower = msg.lower()
+
+    if "supplement" in msg_lower and "figure" in msg_lower:
+        suggestions.append(
+            "Adicione o argumento 'supplement: [Quadro]' (ou suplemento correspondente) à chamada do elemento #figure."
+        )
+    if "unclosed delimiter" in msg_lower or "unclosed" in msg_lower:
+        suggestions.append(
+            "Verifique delimitadores não fechados na linha indicada: aspas duplas (\"), chaves ({}), parênteses () ou colchetes []."
+        )
+    if "file not found" in msg_lower or "searched at" in msg_lower:
+        suggestions.append(
+            "Verifique se o caminho do arquivo (imagem ou inclusão) existe fisicamente e se está com o caminho relativo correto."
+        )
+    if "unknown font" in msg_lower or "font" in msg_lower and "not found" in msg_lower:
+        suggestions.append(
+            "A fonte especificada não foi encontrada no sistema. Utilize fontes padrão como 'Arial' ou 'Times New Roman'."
+        )
+
+    return {
+        "error": msg,
+        "line": line,
+        "column": column,
+        "diagnostic": diagnostic.strip() if isinstance(diagnostic, str) else str(diagnostic),
+        "suggestions": suggestions,
+    }
+
+
 def lint_latex_source(content: str) -> list[dict[str, Any]]:
     """Analisa o código LaTeX antes da compilação detectando erros clássicos."""
     issues: list[dict[str, Any]] = []
@@ -302,6 +351,8 @@ def _compile_typst(main_file: Path, work_dir: Path) -> dict[str, Any]:
         except Exception:
             pass
 
+    last_error_info: dict[str, Any] | None = None
+
     # 1. Tenta compilação DIRETA via biblioteca embutida Python (Zero dependência externa!)
     try:
         import typst
@@ -319,8 +370,7 @@ def _compile_typst(main_file: Path, work_dir: Path) -> dict[str, Any]:
                 "message": f"PDF ABNT compilado e entregue com sucesso: {output_pdf.name}"
             }
     except Exception as py_exc:
-        # Se falhou, tenta CLI se disponível
-        pass
+        last_error_info = parse_typst_error(py_exc)
 
     # 2. Fallback via CLI executável
     has_typst_cli = shutil.which("typst") is not None
@@ -332,23 +382,42 @@ def _compile_typst(main_file: Path, work_dir: Path) -> dict[str, Any]:
                 source_to_compile.unlink(missing_ok=True)
 
             success = res.returncode == 0 and output_pdf.exists()
-            return {
-                "success": success,
-                "engine": "typst (cli)",
-                "file": main_file.name,
-                "pdf_generated": str(output_pdf) if success else None,
-                "size_bytes": output_pdf.stat().st_size if success else 0,
-                "message": "PDF compilado com sucesso via Typst CLI!" if success else f"Erro ao compilar Typst: {res.stderr}"
-            }
+            if success:
+                return {
+                    "success": True,
+                    "engine": "typst (cli)",
+                    "file": main_file.name,
+                    "pdf_generated": str(output_pdf),
+                    "size_bytes": output_pdf.stat().st_size,
+                    "message": "PDF compilado com sucesso via Typst CLI!"
+                }
+            else:
+                last_error_info = parse_typst_error(Exception(res.stderr), raw_output=res.stderr)
         except Exception as exc:
-            pass
+            if not last_error_info:
+                last_error_info = parse_typst_error(exc)
 
-    return {
+    if is_temp_typst and source_to_compile.exists():
+        source_to_compile.unlink(missing_ok=True)
+
+    result: dict[str, Any] = {
         "success": False,
         "engine": "typst",
         "file": main_file.name,
-        "error": "Não foi possível compilar o documento para PDF via Typst.",
+        "error": (last_error_info.get("error") if last_error_info else "Não foi possível compilar o documento para PDF via Typst."),
     }
+
+    if last_error_info:
+        if last_error_info.get("line") is not None:
+            result["line"] = last_error_info["line"]
+        if last_error_info.get("column") is not None:
+            result["column"] = last_error_info["column"]
+        if last_error_info.get("diagnostic"):
+            result["diagnostic_snippet"] = last_error_info["diagnostic"]
+        if last_error_info.get("suggestions"):
+            result["suggestions"] = last_error_info["suggestions"]
+
+    return result
 
 
 def _compile_latex(main_file: Path, work_dir: Path) -> dict[str, Any]:

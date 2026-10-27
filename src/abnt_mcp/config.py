@@ -90,6 +90,12 @@ NORMATIVE_RULES: dict[str, dict[str, str]] = {
         "title": "Formatação de citações diretas curtas (<=3 linhas, aspas) e longas (>3 linhas, recuo de 4 cm, fonte 10)",
         "severity": "error",
     },
+    "NBR10520-R05": {
+        "standard": "ABNT NBR 10520:2023",
+        "clause": "Seção 4.2",
+        "title": "Vedação de parênteses redundantes/aninhados em chamadas de citação Typst (@chave)",
+        "severity": "warning",
+    },
     "NBR6023-R01": {
         "standard": "ABNT NBR 6023:2018",
         "clause": "Anexo A (A.1)",
