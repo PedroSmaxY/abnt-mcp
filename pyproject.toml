@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "abnt-mcp"
-version = "0.3.2"
+version = "0.4.0"
 description = "ABNT Copilot MCP - Servidor Model Context Protocol definitivo para elaboração, revisão e compilação de TCCs, dissertações e artigos no padrão ABNT"
 readme = "README.md"
 requires-python = ">=3.10"
