@@ -219,12 +219,12 @@ uv run pytest -v --cov=abnt_mcp --cov-report=term-missing
 ```
 
 ```text
-============================= 80 passed in 2.26s =============================
+============================= 83 passed in 2.40s =============================
 tests/test_advisory.py (4 testes)     -> Consulta Crossref/SciELO, DOI e Simulador de Banca
-tests/test_compiler.py (4 testes)     -> Linter de ambientes, tratamento de logs e engines
-tests/test_diagnostics.py (6 testes)  -> Estrutura NBR 14724, auditoria de citações e tom científico
+tests/test_compiler.py (5 testes)     -> Linter de ambientes, diagnóstico rico de erros Typst e engines
+tests/test_diagnostics.py (7 testes)  -> Estrutura NBR 14724, auditoria de citações, linter NBR 10520 e tom científico
 tests/test_edge_cases.py (23 testes)  -> Casos de borda (paginação NBR 14724, autores compostos, localizadores, IBGE vs ABNT)
-tests/test_parsers.py (9 testes)      -> Extratores LaTeX/MD/Typst, validação de caixa alta e extração de PDF
+tests/test_parsers.py (10 testes)     -> Extratores LaTeX/MD/Typst, linter/autofix NBR10520-R05 e extração de PDF
 tests/test_sdd.py (16 testes)         -> Trava Anti-Drift SDD, CHANGELOG/SemVer, scaffolding, PDF/logo institucional e relatórios
 tests/test_server.py (6 testes)       -> Registro e execução de tools, prompts e resources
 tests/test_writing.py (12 testes)     -> Citações 2023, Referências 6023, Resumo, Figuras, Tabelas e Equações
@@ -237,17 +237,17 @@ A suíte assegura **87% de cobertura global** no núcleo do sistema:
 | Módulo / Camada | Declarações | Cobertura | Escopo de Garantia |
 | :--- | :---: | :---: | :--- |
 | `abnt_mcp.config` | 32 | **100%** | Catálogo SDD (`NORMATIVE_RULES`), regexes normativas, meses ABNT e léxico |
-| `abnt_mcp.models` | 197 | **100%** | Esquemas Pydantic e modelos de 3 camadas (`ResearchSpec`) |
-| `abnt_mcp.parsers.citations` | 81 | **96%** | Extração e auditoria de citações em LaTeX, MD e Typst |
-| `abnt_mcp.pillars.diagnostics` | 277 | **91%** | Validação NBR 14724 / NBR 6022, auditoria de `.bib`, tom científico e paginação |
+| `abnt_mcp.models` | 198 | **100%** | Esquemas Pydantic e modelos de 3 camadas (`ResearchSpec`) |
+| `abnt_mcp.parsers.citations` | 115 | **97%** | Extração, auditoria e linter/autofix de citações em LaTeX, MD e Typst |
+| `abnt_mcp.pillars.diagnostics` | 279 | **91%** | Validação NBR 14724 / NBR 6022, auditoria de `.bib`, tom científico e paginação |
 | `abnt_mcp.pillars.spec` | 383 | **91%** | Motor SDD (`abnt.spec.json`, `SPEC.md`, scaffolding institucional e auditoria) |
 | `abnt_mcp.pillars.writing` | 242 | **88%** | NBR 10520:2023, NBR 6023:2018, NBR 6028, tabelas IBGE, figuras e equações |
 | `abnt_mcp.server` | 121 | **88%** | Protocolo FastMCP (17 tools, 3 prompts, 9 resources) |
 | `abnt_mcp.parsers.pdf_reader` | 248 | **83%** | Auditoria forense de paginação NBR 14724, extração visual e de logos |
 | `abnt_mcp.pillars.advisory` | 153 | **82%** | Consultas Crossref, SciELO, BibTeX por DOI e banca integrada ao SDD |
 | `abnt_mcp.parsers.bibtex` | 92 | **80%** | Sanitização, normalização e deduplicação de entradas |
-| `abnt_mcp.pillars.compiler` | 222 | **66%** | Compilação nativa Typst, LaTeX abnTeX2 e Pandoc |
-| **Total do Ecossistema** | **2082** | **87%** | **80 testes aprovados** |
+| `abnt_mcp.pillars.compiler` | 261 | **70%** | Compilação nativa Typst, LaTeX abnTeX2, diagnóstico de erros e sugestões |
+| **Total do Ecossistema** | **2158** | **87%** | **83 testes aprovados** |
 
 ### 7.3 Esteira de Integração Contínua (GitHub Actions)
 

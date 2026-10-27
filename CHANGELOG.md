@@ -10,6 +10,10 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 
 ## [Unreleased]
 
+---
+
+## [0.4.0] - 2026-10-26
+
 ### Adicionado
 - **Regra Normativa `NBR10520-R05` e Linter/Autofix de Citações Typst (`src/abnt_mcp/parsers/citations.py`, `src/abnt_mcp/pillars/diagnostics.py`, `specs/01-normative-catalog.spec.md`):**
   - Implementação da regra `NBR10520-R05`, prevenindo parênteses redundantes/aninhados em chamadas de citação Typst `(@chave)`.
