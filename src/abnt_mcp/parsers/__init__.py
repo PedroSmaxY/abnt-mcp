@@ -6,6 +6,8 @@ from abnt_mcp.parsers.citations import (
     extract_citations_from_typst,
     extract_citations_from_project,
     detect_uppercase_citations,
+    detect_redundant_typst_citation_parens,
+    fix_redundant_typst_citation_parens,
 )
 from abnt_mcp.parsers.bibtex import (
     clean_latex_accents,
@@ -22,6 +24,8 @@ __all__ = [
     "extract_citations_from_typst",
     "extract_citations_from_project",
     "detect_uppercase_citations",
+    "detect_redundant_typst_citation_parens",
+    "fix_redundant_typst_citation_parens",
     "clean_latex_accents",
     "extract_bib_keys_and_dois",
     "sanitize_bibtex_string",

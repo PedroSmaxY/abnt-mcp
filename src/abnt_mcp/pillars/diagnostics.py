@@ -348,7 +348,7 @@ def audit_citations_and_references(
             continue
 
     # 2. Extrai citações do texto
-    citations_by_key, uppercase_violations = extract_citations_from_project(project_dir)
+    citations_by_key, uppercase_violations, redundant_parens_violations = extract_citations_from_project(project_dir)
 
     all_cited_keys = set(citations_by_key.keys())
 
@@ -404,7 +404,24 @@ def audit_citations_and_references(
             human_review_required=False,
         ))
 
-    is_consistent = len(orphan_citations) == 0 and len(uppercase_violations) == 0
+    for rpv in redundant_parens_violations:
+        diagnostics.append(DiagnosticItem(
+            rule_id="NBR10520-R05",
+            nature="normative",
+            severity="warning",
+            confidence="high",
+            message=f"Citação Typst '{rpv.get('found')}' com parênteses redundantes gerará parênteses duplos no PDF final.",
+            suggestion=f"Substitua por '{rpv.get('suggested')}' (no Typst com CSL ABNT @chave já gera parênteses).",
+            file=str(rpv.get("file", "")),
+            line=int(rpv["line"]) if isinstance(rpv.get("line"), int) else None,
+            human_review_required=False,
+        ))
+
+    is_consistent = (
+        len(orphan_citations) == 0
+        and len(uppercase_violations) == 0
+        and len(redundant_parens_violations) == 0
+    )
 
     return CitationValidationResult(
         total_citations_in_text=len(all_cited_keys),
@@ -412,6 +429,7 @@ def audit_citations_and_references(
         orphan_citations=orphan_citations,
         unused_references=unused_references,
         uppercase_violations=uppercase_violations,
+        redundant_parens_violations=redundant_parens_violations,
         diagnostics=diagnostics,
         is_consistent=is_consistent,
     )

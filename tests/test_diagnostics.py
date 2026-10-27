@@ -68,6 +68,24 @@ def test_audit_citations_and_references(tmp_path: Path, sample_bib_content):
     assert len(result.uppercase_violations) > 0
 
 
+def test_audit_citations_detects_redundant_typst_parens(tmp_path: Path, sample_bib_content):
+    """Valida diagnóstico de parênteses duplos em citações Typst (NBR10520-R05)."""
+    bib = tmp_path / "referencias.bib"
+    bib.write_text(sample_bib_content, encoding="utf-8")
+
+    doc = tmp_path / "main.typ"
+    doc.write_text("Citação indevida com parênteses (@silva2023; @santos2022).", encoding="utf-8")
+
+    result = audit_citations_and_references(tmp_path)
+    assert result.is_consistent is False
+    assert len(result.redundant_parens_violations) == 1
+    assert result.redundant_parens_violations[0]["found"] == "(@silva2023; @santos2022)"
+    assert result.redundant_parens_violations[0]["suggested"] == "@silva2023 @santos2022"
+
+    diag_rules = [d.rule_id for d in result.diagnostics]
+    assert "NBR10520-R05" in diag_rules
+
+
 def test_analyze_scientific_tone_first_person():
     text = "Nós analisamos os dados e eu percebi uma inconsistência clara no meu estudo."
     res = analyze_scientific_tone(text)

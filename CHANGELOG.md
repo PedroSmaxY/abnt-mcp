@@ -10,6 +10,17 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0
 
 ## [Unreleased]
 
+### Adicionado
+- **Regra Normativa `NBR10520-R05` e Linter/Autofix de Citações Typst (`src/abnt_mcp/parsers/citations.py`, `src/abnt_mcp/pillars/diagnostics.py`, `specs/01-normative-catalog.spec.md`):**
+  - Implementação da regra `NBR10520-R05`, prevenindo parênteses redundantes/aninhados em chamadas de citação Typst `(@chave)`.
+  - No Typst com CSL ABNT, a chave `@chave` já emite parênteses `(Autor, Ano)`; o uso de parênteses manuais `(@chave)` produzia `((Autor, Ano))` no PDF final.
+  - Adicionadas funções `detect_redundant_typst_citation_parens` e `fix_redundant_typst_citation_parens` para auditoria e autocorreção (`(@silva2023; @santos2022)` -> `@silva2023 @santos2022`).
+  - Campo `redundant_parens_violations` adicionado a `CitationValidationResult`.
+- **Diagnóstico Rico e Sugestões Acionáveis para Erros do Compilador Typst (`src/abnt_mcp/pillars/compiler.py`):**
+  - Implementação de `parse_typst_error`, extraindo linha, coluna e o bloco renderizado de `diagnostic` do `typst.TypstError` e da saída CLI do Typst.
+  - Adição de sugestões proativas contextuais para falhas frequentes: `supplement` ausente em `#figure` customizados, delimitadores não fechados (`"` soltas), arquivos/imagens não encontrados e fontes ausentes no sistema.
+  - Os retornos de erro de `compile_project` e `compile_tcc` agora incluem `line`, `column`, `diagnostic_snippet` e `suggestions`.
+
 ---
 
 ## [0.3.2] - 2026-10-26

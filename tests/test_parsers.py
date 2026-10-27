@@ -10,6 +10,8 @@ from abnt_mcp.parsers.citations import (
     extract_citations_from_markdown,
     extract_citations_from_typst,
     detect_uppercase_citations,
+    detect_redundant_typst_citation_parens,
+    fix_redundant_typst_citation_parens,
     extract_citations_from_project,
 )
 from abnt_mcp.parsers.bibtex import (
@@ -71,6 +73,28 @@ def test_detect_uppercase_citations():
     assert len(violations) == 2
     assert "SILVA" in violations[0]["found"]
     assert "Silva" in violations[0]["suggested"]
+
+
+def test_detect_and_fix_redundant_typst_citation_parens():
+    """Valida detecção e autofix de parênteses duplos em citações Typst (NBR10520-R05)."""
+    typst_code = """
+    Como apontado em (@silva2023), os resultados mostram consistência.
+    Outros autores (@santos2022; @lima2021) corroboram a mesma tese.
+    Já esta citação está correta @pereira2020.
+    // Comentário (@ignorado2020)
+    """
+    violations = detect_redundant_typst_citation_parens(typst_code)
+    assert len(violations) == 2
+    assert violations[0]["found"] == "(@silva2023)"
+    assert violations[0]["suggested"] == "@silva2023"
+    assert violations[1]["found"] == "(@santos2022; @lima2021)"
+    assert violations[1]["suggested"] == "@santos2022 @lima2021"
+
+    fixed, count = fix_redundant_typst_citation_parens(typst_code)
+    assert count == 2
+    assert "(@silva2023)" not in fixed
+    assert "@silva2023" in fixed
+    assert "@santos2022 @lima2021" in fixed
 
 
 def test_clean_latex_accents():
